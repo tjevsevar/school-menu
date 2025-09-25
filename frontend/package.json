@@ -9,9 +9,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^8.50.0",
+    "daisyui": "^5.1.18",
     "eslint": "^8.50.0",
     "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0"
+    "jest-environment-jsdom": "^29.7.0",
+    "tailwindcss": "^4.1.13"
   },
   "keywords": [
     "pwa",
