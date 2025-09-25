@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Šolski Jedilnik</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Šolski Jedilnik">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1d1d1f;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 2.2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1em;
+            font-weight: 400;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(0, 122, 255, 0.3);
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(0, 122, 255, 0.4);
+        }
+        
+        .button:active {
+            transform: translateY(0);
+        }
+        
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007AFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .menu-result {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .menu-result.show {
+            display: block;
+        }
+        
+        .menu-content {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .menu-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .meal-section {
+            margin-bottom: 20px;
+        }
+        
+        .meal-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .meal-section-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #007AFF;
+            margin: 15px 0 10px 0;
+            padding: 8px 12px;
+            background: rgba(0, 122, 255, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #007AFF;
+        }
+
+        .menu-line {
+            margin: 5px 0;
+            color: #333;
+        }
+
+        .meal-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #007AFF;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid rgba(0, 122, 255, 0.2);
+        }
+        
+        .meal-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .meal-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .meal-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .food-name {
+            flex: 1;
+        }
+        
+        .allergens {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .allergen-badge {
+            font-size: 0.7em;
+            color: #FF9500;
+            font-weight: 600;
+            background: rgba(255, 149, 0, 0.15);
+            padding: 3px 6px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 149, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            user-select: none;
+        }
+        
+        .allergen-badge:hover {
+            background: rgba(255, 149, 0, 0.25);
+            transform: translateY(-1px);
+        }
+        
+        .allergen-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+            margin-bottom: 5px;
+        }
+        
+        .allergen-tooltip.show {
+            opacity: 1;
+        }
+        
+        .allergen-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.9);
+        }
+        
+        @media (max-width: 480px) {
+            .card {
+                padding: 20px;
+                margin: 0 10px;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .allergen-badge {
+                font-size: 0.8em;
+                padding: 6px 10px;
+            }
+        }
+        
+        .allergen-info {
+            background: rgba(255, 149, 0, 0.1);
+            border: 1px solid rgba(255, 149, 0, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 15px;
+        }
+        
+        .allergen-info h3 {
+            color: #FF9500;
+            font-size: 1em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .allergen-list {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #666;
+        }
+        
+        .error-msg {
+            display: none;
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+            border-left: 4px solid #c62828;
+        }
+        
+        .error-msg.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ Šolski Jedilnik</h1>
+            <p>Danes na meniju</p>
+        </div>
+        
+        <div class="card">
+            <button id="checkMenuBtn" class="button">
+                🔄 Osveži jedilnik
+            </button>
+            
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <div>Pridobivam jedilnik...</div>
+            </div>
+            
+            <div id="menuResult" class="menu-result">
+                <!-- Menu content will be inserted here -->
+            </div>
+            
+            <div id="errorMsg" class="error-msg">
+                <!-- Error messages will be shown here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Service Worker Registration (optional for PWA features)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then((registration) => {
+                    console.log('ServiceWorker registered successfully');
+                })
+                .catch((error) => {
+                    console.log('ServiceWorker registration failed:', error);
+                    // Don't fail the app if service worker fails
+                });
+        }
+
+        const checkMenuBtn = document.getElementById('checkMenuBtn');
+        const loading = document.getElementById('loading');
+        const menuResult = document.getElementById('menuResult');
+        const errorMsg = document.getElementById('errorMsg');
+
+        // Allergen translations
+        const allergenTranslations = {
+            'G': 'Gluten',
+            'J': 'Jajce (Eggs)',
+            'S': 'Soja (Soy)',
+            'L': 'Laktoza (Lactose)',
+            'GS': 'Gorčično seme (Mustard seed)',
+            'R': 'Ribe (Fish)',
+            'O': 'Oreščki (Nuts)',
+            'SE': 'Sezam (Sesame)',
+            'Z': 'Zelena (Celery)',
+            'ŽD': 'Žveplov dioksid (Sulfur dioxide)',
+            'RA': 'Raki (Crustaceans)',
+            'M': 'Mehkužci (Molluscs)',
+            'V': 'Volčji bob (Lupin)'
+        };
+
+        async function loadMenu() {
+            showLoading();
+            hideError();
+            hideMenu();
+            
+            try {
+                const response = await fetch('/api/menu');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayMenu(data.menu);
+                } else {
+                    showError('Napaka pri pridobivanju jedilnika: ' + data.error);
+                }
+            } catch (error) {
+                showError('Napaka pri pridobivanju jedilnika: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        checkMenuBtn.addEventListener('click', loadMenu);
+
+        // Auto-load menu when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMenu();
+        });
+
+        // Also load when page becomes visible (e.g., switching tabs)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                loadMenu();
+            }
+        });
+
+        function showLoading() {
+            loading.classList.add('show');
+            checkMenuBtn.disabled = true;
+        }
+
+        function hideLoading() {
+            loading.classList.remove('show');
+            checkMenuBtn.disabled = false;
+        }
+
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.classList.add('show');
+        }
+
+        function hideError() {
+            errorMsg.classList.remove('show');
+        }
+
+        function showMenu() {
+            menuResult.classList.add('show');
+        }
+
+        function hideMenu() {
+            menuResult.classList.remove('show');
+        }
+
+        function displayMenu(menuText) {
+            // Simple display - just show the menu text with nice formatting
+            const lines = menuText.split('\n');
+            let html = '';
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
+                
+                if (line.includes('🍽️')) {
+                    html += `<div class="menu-title">${line}</div>`;
+                } else if (line.includes('🥪') || line.includes('🥤')) {
+                    html += `<div class="meal-section-title">${line}</div>`;
+                } else if (line.includes('MALICA:') || line.includes('KOSILO:') || line.includes('POP. MALICA:')) {
+                    // Parse meal section with items and allergens
+                    const parts = line.split(': ');
+                    if (parts.length === 2) {
+                        const sectionTitle = parts[0];
+                        const itemsText = parts[1];
+                        
+                        html += `<div class="meal-section-title">${sectionTitle}</div>`;
+                        
+                        // Split items by comma, but be careful with allergen codes
+                        // First, let's split by comma and then process each item
+                        const rawItems = itemsText.split(',');
+                        const items = [];
+                        let currentItem = '';
+                        
+                        for (let i = 0; i < rawItems.length; i++) {
+                            const part = rawItems[i].trim();
+                            
+                            // If this part looks like an allergen code (single letters), combine with previous
+                            if (currentItem && part.match(/^[A-ZŽŠČ]{1,3}$/)) {
+                                currentItem += ', ' + part;
+                            } else {
+                                // If we have a current item, save it
+                                if (currentItem) {
+                                    items.push(currentItem.trim());
+                                }
+                                currentItem = part;
+                            }
+                        }
+                        // Don't forget the last item
+                        if (currentItem) {
+                            items.push(currentItem.trim());
+                        }
+                        
+                        for (let item of items) {
+                            // Extract allergens using em-dash or minus pattern
+                            const allergenMatch = item.match(/[–−-]\s*([A-ZŽŠČ,\s]+)$/);
+                            let foodText = item;
+                            let allergensHtml = '';
+                            
+                            if (allergenMatch) {
+                                foodText = item.replace(/[–−-]\s*[A-ZŽŠČ,\s]+$/, '').trim();
+                                const allergenCodes = allergenMatch[1].split(',').map(code => code.trim()).filter(code => code && code.match(/^[A-ZŽŠČ]+$/));
+                                if (allergenCodes.length > 0) {
+                                    allergensHtml = `<div class="allergens">${createAllergenBadges(allergenCodes)}</div>`;
+                                }
+                            }
+                            
+                            if (foodText) {
+                                html += `<div class="meal-item">
+                                    <span class="food-name">${foodText}</span>
+                                    ${allergensHtml}
+                                </div>`;
+                            }
+                        }
+                    }
+                } else if (line.includes('📋 ALERGENI:')) {
+                    html += `<div class="allergen-info">
+                        <h3>📋 Alergeni</h3>
+                        <div class="allergen-list">`;
+                } else if (html.includes('allergen-list">') && !html.includes('</div></div>')) {
+                    // We're inside allergen info
+                    html += line + '<br>';
+                } else {
+                    html += `<div class="menu-line">${line}</div>`;
+                }
+            }
+            
+            // Close allergen info if open
+            if (html.includes('allergen-list">') && !html.includes('</div></div>')) {
+                html += `</div></div>`;
+            }
+            
+            // Add last updated timestamp
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('sl-SI', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            const lastUpdated = `<div style="text-align: center; font-size: 0.8em; color: #666; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+                Zadnja posodobitev: ${timeString}
+            </div>`;
+            
+            menuResult.innerHTML = `<div class="menu-content">${html}${lastUpdated}</div>`;
+            showMenu();
+            setupAllergenTooltips();
+        }
+
+        function extractAllergenCodes(text) {
+            const match = text.match(/\(([A-ZŽŠČ,\s]+)\)$/);
+            if (match) {
+                return match[1].split(',').map(code => code.trim()).filter(code => code);
+            }
+            return [];
+        }
+
+        function createMealSection(title, items) {
+            if (items.length === 0) return '';
+            
+            let itemsHtml = '';
+            for (let item of items) {
+                let allergensHtml = '';
+                if (item.allergens && item.allergens.length > 0) {
+                    allergensHtml = `<div class="allergens">${createAllergenBadges(item.allergens)}</div>`;
+                }
+                
+                itemsHtml += `
+                    <div class="meal-item">
+                        <span class="food-name">${item.food}</span>
+                        ${allergensHtml}
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="meal-section">
+                    <div class="meal-title">${title}</div>
+                    <div class="meal-items">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function createAllergenBadges(allergenCodes) {
+            return allergenCodes.map(code => {
+                const tooltip = allergenTranslations[code] || code;
+                return `<span class="allergen-badge" data-tooltip="${tooltip}">${code}</span>`;
+            }).join('');
+        }
+
+        function setupAllergenTooltips() {
+            const badges = document.querySelectorAll('.allergen-badge');
+            badges.forEach(badge => {
+                // Mouse hover events for desktop
+                badge.addEventListener('mouseenter', (e) => {
+                    // Remove any existing tooltip
+                    const existingTooltip = badge.querySelector('.allergen-tooltip');
+                    if (existingTooltip) {
+                        existingTooltip.remove();
+                    }
+                    
+                    // Create and show tooltip
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'allergen-tooltip show';
+                    tooltip.textContent = badge.dataset.tooltip;
+                    badge.appendChild(tooltip);
+                });
+                
+                badge.addEventListener('mouseleave', (e) => {
+                    const tooltip = badge.querySelector('.allergen-tooltip');
+                    if (tooltip) {
+                        tooltip.remove();
+                    }
+                });
+                
+                // Touch/click events for mobile
+                badge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    
+                    const existingTooltip = badge.querySelector('.allergen-tooltip');
+                    if (existingTooltip) {
+                        existingTooltip.remove();
+                        return;
+                    }
+                    
+                    // Hide all other tooltips
+                    document.querySelectorAll('.allergen-tooltip').forEach(tooltip => {
+                        tooltip.remove();
+                    });
+                    
+                    // Create and show tooltip
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'allergen-tooltip show';
+                    tooltip.textContent = badge.dataset.tooltip;
+                    badge.appendChild(tooltip);
+                    
+                    // Hide tooltip after 3 seconds
+                    setTimeout(() => {
+                        if (tooltip.parentNode) {
+                            tooltip.remove();
+                        }
+                    }, 3000);
+                });
+            });
+            
+            // Hide tooltips when clicking outside
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.allergen-tooltip').forEach(tooltip => {
+                    tooltip.remove();
+                });
+            });
+        }
+    </script>
+</body>
+</html>

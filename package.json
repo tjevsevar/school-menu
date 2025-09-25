@@ -1,0 +1,28 @@
+{
+  "name": "school-lunch-checker",
+  "version": "1.0.0",
+  "description": "School Lunch Menu Checker - Progressive Web App",
+  "main": "frontend/index.html",
+  "scripts": {
+    "start": "python3 web_app/app.py",
+    "dev": "python3 web_app/app.py",
+    "build": "echo 'Static site - no build needed'",
+    "test": "python3 -c 'from school_lunch_checker import LunchMenuChecker; print(\"✅ App works!\")'"
+  },
+  "keywords": [
+    "school",
+    "lunch",
+    "menu",
+    "pwa",
+    "education"
+  ],
+  "author": "School Lunch Checker",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/school-lunch-checker.git"
+  },
+  "engines": {
+    "python": ">=3.8"
+  }
+}

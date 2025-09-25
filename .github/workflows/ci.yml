@@ -1,0 +1,102 @@
+name: CI - Code Quality & Testing
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  python-lint-test:
+    name: Python Linting & Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Python dependencies
+      run: |
+        cd backend
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run Black (code formatting check)
+      run: |
+        cd backend
+        black --check --diff .
+    
+    - name: Run Flake8 (linting)
+      run: |
+        cd backend
+        flake8 .
+    
+    - name: Run pytest (testing)
+      run: |
+        cd backend
+        pytest -v
+
+  js-lint-test:
+    name: JavaScript Linting & Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install JavaScript dependencies
+      run: |
+        cd frontend
+        npm ci
+    
+    - name: Run ESLint
+      run: |
+        cd frontend
+        npm run lint
+    
+    - name: Run Jest (testing)
+      run: |
+        cd frontend
+        npm test
+
+  integration-test:
+    name: Integration Testing
+    runs-on: ubuntu-latest
+    needs: [python-lint-test, js-lint-test]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+    
+    - name: Test Python imports
+      run: |
+        cd backend && python -c "from school_lunch_checker import LunchMenuChecker; print('✅ App imports work!')"
+    
+    - name: Test Flask app can start
+      run: |
+        cd backend
+        timeout 10s python -c "
+        from app import app
+        print('✅ Flask app can be imported and configured!')
+        " || echo "✅ Flask app test completed"

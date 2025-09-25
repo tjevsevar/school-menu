@@ -1,0 +1,25 @@
+{
+  "name": "school-lunch-checker-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for School Lunch Checker Progressive Web App",
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^8.50.0",
+    "eslint": "^8.50.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "keywords": [
+    "pwa",
+    "school",
+    "lunch",
+    "menu",
+    "frontend"
+  ],
+  "author": "School Lunch Checker Team",
+  "license": "MIT"
+}
