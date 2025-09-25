@@ -39,6 +39,35 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
+        
+        /* Enhanced tooltip behavior for touch devices */
+        .allergen-badge {
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .allergen-badge:active {
+            transform: scale(0.95);
+        }
+        
+        /* Force tooltip visibility when tooltip-open class is added */
+        .tooltip.tooltip-open:before,
+        .tooltip.tooltip-open:after {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        /* Improve tooltip positioning on mobile */
+        @media (max-width: 768px) {
+            .tooltip:before {
+                font-size: 0.75rem;
+                padding: 4px 8px;
+                white-space: nowrap;
+                max-width: 200px;
+                word-wrap: break-word;
+            }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-orange-100 via-yellow-50 to-green-100 min-h-screen relative overflow-x-hidden">
@@ -181,8 +210,8 @@
                         <div class="flex-col items-start w-full">
                             <h3 class="font-bold text-lg text-blue-800">Kaj pomenijo črke? To so alergeni. Vprašaj učitelja/co če te zanima več.</h3>
                         </div>
-                    </div>
-                    
+            </div>
+            
                     <!-- Developer Credits -->
                     <div class="card bg-gray-50 shadow-lg border border-gray-200">
                         <div class="card-body text-center py-6">
@@ -194,12 +223,12 @@
                                 onclick="window.location.href='mailto:andraz.jevsevar@ostrbovlje.si?subject=Povratne informacije - Šolski jedilnik&body=Pozdravljen,%0A%0APišem vam glede aplikacije za šolski jedilnik...%0A%0ALep pozdrav'"
                             >
                                 📧 Pošlji povratne informacije
-                            </button>
+            </button>
                         </div>
                     </div>
-                    
-                </div>
-                
+            
+            </div>
+            
                 <!-- Success Toast (Hidden by default) -->
                 <div class="toast toast-top toast-center hidden" id="successToast">
                     <div class="alert alert-success shadow-lg">
@@ -208,8 +237,8 @@
                             <span class="font-semibold">Jedilnik uspešno osvežen!</span>
                         </div>
                     </div>
-                </div>
-                
+            </div>
+            
             </div>
         </div>
         
@@ -236,8 +265,8 @@
         // Initialize current date in Slovenian
         function updateCurrentDay() {
             const now = new Date();
-            
-            // Slovenian day names
+
+        // Slovenian day names
             const slovenianDays = [
                 'Nedelja', 'Ponedeljek', 'Torek', 'Sreda', 'Četrtek', 'Petek', 'Sobota'
             ];
@@ -308,6 +337,74 @@
         updateCurrentDay();
         fetchMenuInfo();
         updateTimestamp();
+
+        // Enhanced touch support for allergen tooltips
+        function setupAllergenTooltips() {
+            const allergenBadges = document.querySelectorAll('.allergen-badge');
+            
+            allergenBadges.forEach(badge => {
+                // Add touch event for mobile devices
+                badge.addEventListener('touchstart', function(e) {
+                    e.preventDefault(); // Prevent default touch behavior
+                    
+                    // Hide all other tooltips first
+                    document.querySelectorAll('.allergen-badge').forEach(otherBadge => {
+                        if (otherBadge !== badge) {
+                            otherBadge.classList.remove('tooltip-open');
+                        }
+                    });
+                    
+                    // Toggle this tooltip
+                    badge.classList.toggle('tooltip-open');
+                    
+                    // Auto-hide after 3 seconds on mobile
+                    setTimeout(() => {
+                        badge.classList.remove('tooltip-open');
+                    }, 3000);
+                });
+                
+                // Add click event as fallback
+                badge.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    // Hide all other tooltips first
+                    document.querySelectorAll('.allergen-badge').forEach(otherBadge => {
+                        if (otherBadge !== badge) {
+                            otherBadge.classList.remove('tooltip-open');
+                        }
+                    });
+                    
+                    // Toggle this tooltip
+                    badge.classList.toggle('tooltip-open');
+                    
+                    // Auto-hide after 3 seconds
+                    setTimeout(() => {
+                        badge.classList.remove('tooltip-open');
+                    }, 3000);
+                });
+            });
+            
+            // Hide tooltips when touching outside
+            document.addEventListener('touchstart', function(e) {
+                if (!e.target.classList.contains('allergen-badge')) {
+                    document.querySelectorAll('.allergen-badge').forEach(badge => {
+                        badge.classList.remove('tooltip-open');
+                    });
+                }
+            });
+            
+            // Hide tooltips when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.classList.contains('allergen-badge')) {
+                    document.querySelectorAll('.allergen-badge').forEach(badge => {
+                        badge.classList.remove('tooltip-open');
+                    });
+                }
+            });
+        }
+
+        // Initialize tooltip functionality
+        setupAllergenTooltips();
 
         // Refresh button functionality
         document.getElementById('refreshBtn').addEventListener('click', async () => {
