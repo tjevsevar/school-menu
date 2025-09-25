@@ -3,8 +3,7 @@ const CACHE_NAME = 'school-lunch-v4';
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/school-logo.png'
 ];
 
 // Install event - cache basic resources only
