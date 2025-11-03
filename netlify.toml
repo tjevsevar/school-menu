@@ -3,7 +3,7 @@
   command = "echo 'Static site build complete'"
 
 [functions]
-  directory = "backend"
+  directory = "netlify/functions"
 
 [[redirects]]
   from = "/api/*"
