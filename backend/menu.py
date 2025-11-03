@@ -41,6 +41,11 @@ def handler(event, context):
     try:
         # Get today's menu
         checker = LunchMenuChecker()
+        
+        # Get menu info (includes URL and date range)
+        menu_info = checker.get_current_week_menu_url()
+        
+        # Get today's menu content
         menu_result = checker.check_lunch_menu()
         
         response_data = {
@@ -48,6 +53,17 @@ def handler(event, context):
             'menu': menu_result,
             'timestamp': datetime.now().isoformat()
         }
+        
+        # Add menu URL and date range if available
+        if menu_info:
+            response_data['source_url'] = menu_info['url']
+            response_data['menu_title'] = menu_info['text']
+            
+            # Extract date range from menu title
+            import re
+            date_match = re.search(r'(\d{1,2}\.\s*\d{1,2}\.\s*–\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{4})', menu_info['text'])
+            if date_match:
+                response_data['date_range'] = date_match.group(1)
         
         return {
             'statusCode': 200,
