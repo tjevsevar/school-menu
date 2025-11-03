@@ -329,31 +329,154 @@
                 `;
             }
             
-        // Fetch menu data and extract date range + URL
+        // Parse menu from HTML document (client-side parsing)
+        function parseMenuFromHTML(doc, menuTitle, menuUrl) {
+            try {
+                const today = new Date();
+                const slovenianDays = {
+                    0: 'NED', 1: 'PON', 2: 'TOR', 3: 'SRE', 4: 'ČET', 5: 'PET', 6: 'SOB'
+                };
+                const todayShort = slovenianDays[today.getDay()];
+                
+                // Find the table
+                const table = doc.querySelector('table');
+                if (!table) {
+                    return { success: false, error: 'Ne morem najti tabele jedilnika' };
+                }
+                
+                const rows = table.querySelectorAll('tr');
+                let todayRow = null;
+                
+                // Find today's row
+                for (const row of rows) {
+                    const cells = row.querySelectorAll('td, th');
+                    if (cells.length > 0 && cells[0].textContent.trim().toUpperCase() === todayShort) {
+                        todayRow = row;
+                        break;
+                    }
+                }
+                
+                if (!todayRow) {
+                    return { success: false, error: `Ne morem najti jedilnika za ${todayShort}` };
+                }
+                
+                // Extract menu items from cells
+                const cells = todayRow.querySelectorAll('td');
+                if (cells.length < 4) {
+                    return { success: false, error: 'Nepopolna struktura tabele' };
+                }
+                
+                // Cell 0: Day, Cell 1: MALICA, Cell 2: KOSILO, Cell 3: POP. MALICA
+                const malicaItems = cells[1].textContent.trim().split('\n').map(item => item.trim()).filter(item => item.length > 1);
+                const kosiloItems = cells[2].textContent.trim().split('\n').map(item => item.trim()).filter(item => item.length > 1);
+                const popMalicaItems = cells[3].textContent.trim().split('\n').map(item => item.trim()).filter(item => item.length > 1);
+                
+                // Format menu
+                const slovenianDayNames = ['nedelja', 'ponedeljek', 'torek', 'sreda', 'četrtek', 'petek', 'sobota'];
+                const dayName = slovenianDayNames[today.getDay()];
+                const formattedDate = today.toLocaleDateString('sl-SI');
+                
+                let menu = `🍽️ Kosilo za ${dayName}, ${formattedDate}\n`;
+                menu += `📋 Jedilnik: ${menuTitle}\n\n`;
+                menu += `${todayShort}, ${today.getDate().toString().padStart(2, '0')}.${(today.getMonth() + 1).toString().padStart(2, '0')}\n`;
+                menu += `🥗 MALICA: ${malicaItems.join(' | ')}\n`;
+                menu += `🍝 KOSILO: ${kosiloItems.join(' | ')}\n`;
+                menu += `🍎 POP. MALICA: ${popMalicaItems.join(' | ')}\n`;
+                
+                // Extract allergens
+                menu += `\n📋 ALERGENI:\n`;
+                menu += `G = gluten, J = jajce, S = soja\n`;
+                menu += `L = laktoza, GS = gorčično seme, R = ribe\n`;
+                menu += `O = oreščki, SE = sezam, ŽD = žveplov dioksid\n`;
+                menu += `RA = raki, M = mehkužci, V = volčji bob`;
+                
+                // Extract date range
+                const dateMatch = menuTitle.match(/(\d{1,2}\.\s*\d{1,2}\.\s*–\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/);
+                
+                return {
+                    success: true,
+                    menu: menu,
+                    menu_title: menuTitle,
+                    source_url: menuUrl,
+                    date_range: dateMatch ? dateMatch[1] : null
+                };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+        
+        // Fetch menu data directly from the school website (client-side)
         async function fetchMenuInfo() {
             try {
-                const response = await fetch('/api/menu');
-                const data = await response.json();
+                // Use CORS proxy to fetch from school website
+                const corsProxy = 'https://corsproxy.io/?';
+                const menuPageUrl = 'https://ostrbovlje.si/prehrana/';
                 
-                if (data.success && data.menu) {
+                console.log('Fetching menu list from school website...');
+                const response = await fetch(corsProxy + encodeURIComponent(menuPageUrl));
+                const html = await response.text();
+                
+                // Parse HTML to find current week's menu
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Find current week's menu link
+                const today = new Date();
+                let currentMenuLink = null;
+                let currentMenuText = null;
+                
+                const links = doc.querySelectorAll('a[href*="jedilnik"]');
+                for (const link of links) {
+                    const text = link.textContent.trim();
+                    const dateMatch = text.match(/(\d{1,2})\.(\d{1,2})\.–(\d{1,2})\.(\d{1,2})\.\s*(\d{4})/);
+                    
+                    if (dateMatch) {
+                        const [_, startDay, startMonth, endDay, endMonth, year] = dateMatch;
+                        const startDate = new Date(year, parseInt(startMonth) - 1, parseInt(startDay));
+                        const endDate = new Date(year, parseInt(endMonth) - 1, parseInt(endDay));
+                        
+                        if (today >= startDate && today <= endDate) {
+                            currentMenuLink = link.href;
+                            currentMenuText = text;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!currentMenuLink) {
+                    throw new Error('Ne morem najti jedilnika za ta teden');
+                }
+                
+                console.log('Found current week menu:', currentMenuText);
+                console.log('Fetching menu from:', currentMenuLink);
+                
+                // Fetch the actual menu page
+                const menuResponse = await fetch(corsProxy + encodeURIComponent(currentMenuLink));
+                const menuHtml = await menuResponse.text();
+                const menuDoc = parser.parseFromString(menuHtml, 'text/html');
+                
+                // Parse the menu
+                const menuData = parseMenuFromHTML(menuDoc, currentMenuText, currentMenuLink);
+                
+                if (menuData.success && menuData.menu) {
                     // Update date range display
-                    if (data.date_range) {
-                        document.getElementById('menuDateRange').textContent = `Jedilnik ${data.date_range}`;
-                    } else if (data.menu_title) {
-                        const dateRangeMatch = data.menu_title.match(/(\d{1,2}\.\s*\d{1,2}\.\s*–\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/);
+                    if (menuData.date_range) {
+                        document.getElementById('menuDateRange').textContent = `Jedilnik ${menuData.date_range}`;
+                    } else if (menuData.menu_title) {
+                        const dateRangeMatch = menuData.menu_title.match(/(\d{1,2}\.\s*\d{1,2}\.\s*–\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/);
                         if (dateRangeMatch) {
                             document.getElementById('menuDateRange').textContent = `Jedilnik ${dateRangeMatch[1]}`;
                         } else {
-                            document.getElementById('menuDateRange').textContent = data.menu_title;
+                            document.getElementById('menuDateRange').textContent = menuData.menu_title;
                         }
                     }
                     
                     // Update menu URL
-                    const menuUrl = data.source_url || 'https://ostrbovlje.si/prehrana/';
+                    const menuUrl = menuData.source_url || 'https://ostrbovlje.si/prehrana/';
                     document.getElementById('menuLink').href = menuUrl;
                     
                     // Display the menu content
-                    displayMenu(data);
+                    displayMenu(menuData);
                 } else {
                     document.getElementById('menuDateRange').textContent = 'Jedilnik ni na voljo';
                     document.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
