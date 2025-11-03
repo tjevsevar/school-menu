@@ -7,15 +7,24 @@ import json
 import sys
 import os
 from datetime import datetime
+import re
+
+# Add the current directory to Python path for imports
+sys.path.insert(0, os.path.dirname(__file__))
 
 # Import from same directory
 try:
     from school_lunch_checker import LunchMenuChecker
-except ImportError:
+    IMPORT_SUCCESS = True
+except ImportError as e:
+    IMPORT_SUCCESS = False
+    IMPORT_ERROR = str(e)
     # Fallback error handling
     class LunchMenuChecker:
         def check_lunch_menu(self):
-            return "❌ Error: Could not import school lunch checker module"
+            return f"❌ Error: Could not import school lunch checker module: {IMPORT_ERROR}"
+        def get_current_week_menu_url(self):
+            return None
 
 def handler(event, context):
     """
@@ -39,6 +48,22 @@ def handler(event, context):
         }
     
     try:
+        # Check if import was successful
+        if not IMPORT_SUCCESS:
+            return {
+                'statusCode': 500,
+                'headers': headers,
+                'body': json.dumps({
+                    'success': False,
+                    'error': f'Module import failed: {IMPORT_ERROR}',
+                    'debug': {
+                        'python_path': sys.path,
+                        'current_dir': os.path.dirname(__file__),
+                        'files_in_dir': os.listdir(os.path.dirname(__file__)) if os.path.dirname(__file__) else []
+                    }
+                }, ensure_ascii=False)
+            }
+        
         # Get today's menu
         checker = LunchMenuChecker()
         
@@ -60,7 +85,6 @@ def handler(event, context):
             response_data['menu_title'] = menu_info['text']
             
             # Extract date range from menu title
-            import re
             date_match = re.search(r'(\d{1,2}\.\s*\d{1,2}\.\s*–\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{4})', menu_info['text'])
             if date_match:
                 response_data['date_range'] = date_match.group(1)
@@ -72,9 +96,11 @@ def handler(event, context):
         }
         
     except Exception as e:
+        import traceback
         error_response = {
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'traceback': traceback.format_exc()
         }
         
         return {
