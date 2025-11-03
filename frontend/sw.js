@@ -1,5 +1,5 @@
 // Simplified Service Worker for PWA functionality
-const CACHE_NAME = 'school-lunch-v4';
+const CACHE_NAME = 'school-lunch-v5';
 const urlsToCache = [
   '/',
   '/manifest.json',

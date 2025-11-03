@@ -28,6 +28,65 @@ class LunchMenuChecker:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
 
+    def get_current_week_menu_url_for_date(self, target_date=None):
+        """Fetch the menu URL for a specific date (or current week if None)"""
+        if target_date is None:
+            return self.get_current_week_menu_url()
+        
+        try:
+            response = self.session.get(self.menu_url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Look for menu links - they typically contain "Jedilnik" and date ranges
+            menu_links = soup.find_all('a', href=True)
+            current_week_links = []
+            
+            for link in menu_links:
+                link_text = link.get_text().strip()
+                if 'Jedilnik' in link_text or 'jedilnik' in link_text.lower():
+                    # Extract date range from the link text
+                    date_match = re.search(r'(\d{1,2})\.(\d{1,2})\.–(\d{1,2})\.(\d{1,2})\.\s*(\d{4})', link_text)
+                    if date_match:
+                        start_day, start_month, end_day, end_month, year = map(int, date_match.groups())
+                        
+                        # Create date objects for the week range
+                        try:
+                            start_date = datetime(year, start_month, start_day)
+                            end_date = datetime(year, end_month, end_day)
+                            
+                            # Check if target_date falls within this week
+                            if start_date <= target_date <= end_date:
+                                href = link.get('href')
+                                if href.startswith('/'):
+                                    href = self.base_url + href
+                                elif not href.startswith('http'):
+                                    href = self.base_url + '/' + href
+                                
+                                current_week_links.append({
+                                    'url': href,
+                                    'text': link_text,
+                                    'start_date': start_date,
+                                    'end_date': end_date
+                                })
+                        except ValueError:
+                            continue
+            
+            # If we found links for the target date, return the first one
+            if current_week_links:
+                current_week_links.sort(key=lambda x: x['start_date'], reverse=True)
+                return current_week_links[0]
+            
+            return None
+            
+        except requests.RequestException as e:
+            print(f"Error fetching menu page: {e}")
+            return None
+        except Exception as e:
+            print(f"Error parsing menu page: {e}")
+            return None
+    
     def get_current_week_menu_url(self):
         """Fetch the current week's menu URL from the main prehrana page"""
         try:
@@ -180,6 +239,40 @@ class LunchMenuChecker:
             print(f"Error extracting allergen info: {e}")
             return None
 
+    def get_lunch_menu_for_date(self, menu_info, target_date):
+        """Extract lunch menu for a specific date from the weekly menu page"""
+        if not menu_info:
+            return "Could not find menu for the specified date."
+        
+        try:
+            response = self.session.get(menu_info['url'], timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Get day name in Slovenian for the target date
+            slovenian_days = {
+                0: ['ponedeljek', 'pon'],  # Monday
+                1: ['torek', 'tor'],       # Tuesday
+                2: ['sreda', 'sre'],       # Wednesday
+                3: ['četrtek', 'čet'],     # Thursday
+                4: ['petek', 'pet'],       # Friday
+                5: ['sobota', 'sob'],      # Saturday
+                6: ['nedelja', 'ned']      # Sunday
+            }
+            
+            today_name = slovenian_days.get(target_date.weekday(), ['', ''])[0]
+            today_short = slovenian_days.get(target_date.weekday(), ['', ''])[1]
+            today_formatted = target_date.strftime("%d.%m.%Y")
+            today_short_date = target_date.strftime("%d.%m")
+            
+            return self._extract_menu_from_soup(soup, menu_info, today_name, today_short, today_formatted, today_short_date, target_date)
+            
+        except requests.RequestException as e:
+            return f"Napaka pri pridobivanju jedilnika: {e}"
+        except Exception as e:
+            return f"Napaka pri obdelavi jedilnika: {e}"
+    
     def get_today_lunch_menu(self, menu_info):
         """Extract today's lunch menu from the weekly menu page"""
         if not menu_info:
@@ -208,6 +301,16 @@ class LunchMenuChecker:
             today_formatted = today.strftime("%d.%m.%Y")
             today_short_date = today.strftime("%d.%m")
             
+            return self._extract_menu_from_soup(soup, menu_info, today_name, today_short, today_formatted, today_short_date, today)
+            
+        except requests.RequestException as e:
+            return f"Napaka pri pridobivanju jedilnika: {e}"
+        except Exception as e:
+            return f"Napaka pri obdelavi jedilnika: {e}"
+    
+    def _extract_menu_from_soup(self, soup, menu_info, today_name, today_short, today_formatted, today_short_date, today):
+        """Extract menu from BeautifulSoup object for a specific day"""
+        try:
             # Look for the table structure
             table = soup.find('table')
             if table:
@@ -283,11 +386,11 @@ class LunchMenuChecker:
                         result += f"{today_short.upper()}, {today_short_date}\n"
                         
                         if menu_sections['MALICA']:
-                            result += f"🥗 MALICA: {', '.join(menu_sections['MALICA'])}\n"
+                            result += f"🥗 MALICA: {' | '.join(menu_sections['MALICA'])}\n"
                         if menu_sections['KOSILO']:
-                            result += f"🍝 KOSILO: {', '.join(menu_sections['KOSILO'])}\n"
+                            result += f"🍝 KOSILO: {' | '.join(menu_sections['KOSILO'])}\n"
                         if menu_sections['POP. MALICA']:
-                            result += f"🍎 POP. MALICA: {', '.join(menu_sections['POP. MALICA'])}\n"
+                            result += f"🍎 POP. MALICA: {' | '.join(menu_sections['POP. MALICA'])}\n"
                         
                         # Add allergen information
                         allergen_info = self.extract_allergen_info(soup)
@@ -440,12 +543,24 @@ class LunchMenuChecker:
             
             result += clean_text
             return result
-                
-        except requests.RequestException as e:
-            return f"Napaka pri pridobivanju jedilnika: {e}"
         except Exception as e:
             return f"Napaka pri obdelavi jedilnika: {e}"
 
+    def check_lunch_menu_for_date(self, target_date):
+        """Check lunch menu for a specific date"""
+        print(f"🔍 Iščem jedilnik za {target_date.strftime('%d.%m.%Y')}...")
+        
+        # Get menu URL for the target date
+        menu_info = self.get_current_week_menu_url_for_date(target_date)
+        if not menu_info:
+            return f"❌ Ne morem najti jedilnika za {target_date.strftime('%d.%m.%Y')}. Preverite internetno povezavo."
+        
+        print(f"📋 Našel jedilnik: {menu_info['text']}")
+        
+        # Get lunch menu for the target date
+        lunch_menu = self.get_lunch_menu_for_date(menu_info, target_date)
+        return lunch_menu
+    
     def check_lunch_menu(self):
         """Main method to check today's lunch menu"""
         print("🔍 Iščem današnji jedilnik...")

@@ -27,21 +27,34 @@ def other_files(filename):
 
 @app.route('/api/menu')
 def get_menu():
-    """API endpoint to get today's menu"""
+    """API endpoint to get today's menu (or a specific test date)"""
     try:
+        # Check if there's a test_date parameter
+        test_date_str = request.args.get('test_date')
+        
         checker = LunchMenuChecker()
         
+        # Override the date if test_date is provided
+        if test_date_str:
+            from datetime import datetime
+            test_date = datetime.strptime(test_date_str, '%Y-%m-%d')
+            # Temporarily override datetime.now() in the checker
+            menu_result = checker.check_lunch_menu_for_date(test_date)
+        else:
+            # Get today's menu content
+            menu_result = checker.check_lunch_menu()
+        
         # Get menu info (includes URL and date range)
-        menu_info = checker.get_current_week_menu_url()
+        menu_info = checker.get_current_week_menu_url_for_date(
+            test_date if test_date_str else None
+        )
         
-        # Get today's menu content
-        menu_result = checker.check_lunch_menu()
-        
-        from datetime import datetime
+        from datetime import datetime as dt
         response_data = {
             'success': True,
             'menu': menu_result,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': dt.now().isoformat(),
+            'test_date': test_date_str if test_date_str else None
         }
         
         # Add menu URL and date range if available
