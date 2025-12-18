@@ -88,7 +88,12 @@ class LunchMenuChecker:
             return None
     
     def get_current_week_menu_url(self):
-        """Fetch the current week's menu URL from the main prehrana page"""
+        """Fetch the current week's menu URL from the main prehrana page
+        
+        Handles the edge case where on Friday, the school may have already
+        published next week's menu, making the current week's Friday fall
+        outside the new menu's date range.
+        """
         try:
             response = self.session.get(self.menu_url, timeout=10)
             response.raise_for_status()
@@ -97,9 +102,13 @@ class LunchMenuChecker:
             
             # Look for menu links - they typically contain "Jedilnik" and date ranges
             menu_links = soup.find_all('a', href=True)
-            current_week_links = []
             
             today = datetime.now()
+            today_date_only = today.replace(hour=0, minute=0, second=0, microsecond=0)
+            is_friday = today.weekday() == 4  # Friday is weekday 4
+            
+            # Collect all valid menu links with their date ranges
+            all_menus = []
             
             for link in menu_links:
                 link_text = link.get_text().strip()
@@ -114,31 +123,48 @@ class LunchMenuChecker:
                             start_date = datetime(year, start_month, start_day)
                             end_date = datetime(year, end_month, end_day)
                             
-                            # Check if today falls within this week
-                            if start_date <= today <= end_date:
-                                href = link.get('href')
-                                if href.startswith('/'):
-                                    href = self.base_url + href
-                                elif not href.startswith('http'):
-                                    href = self.base_url + '/' + href
-                                
-                                current_week_links.append({
-                                    'url': href,
-                                    'text': link_text,
-                                    'start_date': start_date,
-                                    'end_date': end_date
-                                })
+                            href = link.get('href')
+                            if href.startswith('/'):
+                                href = self.base_url + href
+                            elif not href.startswith('http'):
+                                href = self.base_url + '/' + href
+                            
+                            all_menus.append({
+                                'url': href,
+                                'text': link_text,
+                                'start_date': start_date,
+                                'end_date': end_date
+                            })
                         except ValueError:
                             continue
             
-            # If we found current week links, return the first one
-            if current_week_links:
-                # Sort by start date and return the most recent one
-                current_week_links.sort(key=lambda x: x['start_date'], reverse=True)
-                return current_week_links[0]
+            # Priority 1: Menu where today falls within [start_date, end_date]
+            for menu in all_menus:
+                if menu['start_date'] <= today_date_only <= menu['end_date']:
+                    return menu
             
-            # Fallback: get the most recent menu link
-            all_menu_links = []
+            # Priority 2: If it's Friday, look for menu where end_date == today
+            # This handles the case where school published next week's menu
+            if is_friday:
+                for menu in all_menus:
+                    if menu['end_date'].date() == today_date_only.date():
+                        return menu
+            
+            # Priority 3: Most recent menu whose end_date >= today
+            # (current week's menu that hasn't ended yet)
+            valid_menus = [m for m in all_menus if m['end_date'] >= today_date_only]
+            if valid_menus:
+                # Sort by start date descending and return the most recent
+                valid_menus.sort(key=lambda x: x['start_date'], reverse=True)
+                return valid_menus[0]
+            
+            # Priority 4: Fallback - get the most recent menu overall
+            if all_menus:
+                all_menus.sort(key=lambda x: x['start_date'], reverse=True)
+                return all_menus[0]
+            
+            # Ultimate fallback: get any menu link without date parsing
+            fallback_links = []
             for link in menu_links:
                 link_text = link.get_text().strip()
                 if 'Jedilnik' in link_text or 'jedilnik' in link_text.lower():
@@ -147,10 +173,10 @@ class LunchMenuChecker:
                         href = self.base_url + href
                     elif not href.startswith('http'):
                         href = self.base_url + '/' + href
-                    all_menu_links.append({'url': href, 'text': link_text})
+                    fallback_links.append({'url': href, 'text': link_text})
             
-            if all_menu_links:
-                return all_menu_links[0]  # Return the first (most recent) menu
+            if fallback_links:
+                return fallback_links[0]
                 
             return None
             

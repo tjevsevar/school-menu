@@ -422,10 +422,13 @@
                 
                 // Find current week's menu link
                 const today = new Date();
-                let currentMenuLink = null;
-                let currentMenuText = null;
+                today.setHours(0, 0, 0, 0); // Normalize to start of day
+                const isFriday = today.getDay() === 5; // JavaScript: Sunday=0, Friday=5
                 
+                // Collect all menu links with their date ranges
+                const allMenus = [];
                 const links = doc.querySelectorAll('a[href*="jedilnik"]');
+                
                 for (const link of links) {
                     const text = link.textContent.trim();
                     const dateMatch = text.match(/(\d{1,2})\.(\d{1,2})\.–(\d{1,2})\.(\d{1,2})\.\s*(\d{4})/);
@@ -434,13 +437,57 @@
                         const [_, startDay, startMonth, endDay, endMonth, year] = dateMatch;
                         const startDate = new Date(year, parseInt(startMonth) - 1, parseInt(startDay));
                         const endDate = new Date(year, parseInt(endMonth) - 1, parseInt(endDay));
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate.setHours(0, 0, 0, 0);
                         
-                        if (today >= startDate && today <= endDate) {
-                            currentMenuLink = link.href;
-                            currentMenuText = text;
+                        allMenus.push({
+                            link: link.href,
+                            text: text,
+                            startDate: startDate,
+                            endDate: endDate
+                        });
+                    }
+                }
+                
+                let currentMenuLink = null;
+                let currentMenuText = null;
+                
+                // Priority 1: Menu where today falls within [startDate, endDate]
+                for (const menu of allMenus) {
+                    if (today >= menu.startDate && today <= menu.endDate) {
+                        currentMenuLink = menu.link;
+                        currentMenuText = menu.text;
+                        break;
+                    }
+                }
+                
+                // Priority 2: If it's Friday and no match, look for menu where endDate == today
+                if (!currentMenuLink && isFriday) {
+                    for (const menu of allMenus) {
+                        if (menu.endDate.getTime() === today.getTime()) {
+                            currentMenuLink = menu.link;
+                            currentMenuText = menu.text;
                             break;
                         }
                     }
+                }
+                
+                // Priority 3: Most recent menu whose endDate >= today
+                if (!currentMenuLink) {
+                    const validMenus = allMenus
+                        .filter(m => m.endDate >= today)
+                        .sort((a, b) => b.startDate - a.startDate);
+                    if (validMenus.length > 0) {
+                        currentMenuLink = validMenus[0].link;
+                        currentMenuText = validMenus[0].text;
+                    }
+                }
+                
+                // Priority 4: Fallback to most recent menu overall
+                if (!currentMenuLink && allMenus.length > 0) {
+                    allMenus.sort((a, b) => b.startDate - a.startDate);
+                    currentMenuLink = allMenus[0].link;
+                    currentMenuText = allMenus[0].text;
                 }
                 
                 if (!currentMenuLink) {
