@@ -201,6 +201,70 @@
             'V': 'Volčji bob'
         };
 
+        // Check if today is weekend
+        function isWeekend() {
+            const day = new Date().getDay();
+            return day === 0 || day === 6; // Sunday = 0, Saturday = 6
+        }
+
+        // Display fun weekend message
+        function displayWeekendMessage() {
+            const menuContent = document.getElementById('menuContent');
+            const today = new Date();
+            const isSaturday = today.getDay() === 6;
+
+            const dayName = isSaturday ? 'sobota' : 'nedelja';
+            const emoji = isSaturday ? '🌳' : '☀️';
+
+            // Fun weekend messages for kids
+            const messages = [
+                { icon: '🚴', text: 'Danes ni šole! Pojdi se kolesarit!' },
+                { icon: '⚽', text: 'Čas za igro na prostem!' },
+                { icon: '🌲', text: 'Pojdi v naravo in raziskuj!' },
+                { icon: '🎨', text: 'Čas za ustvarjanje!' },
+                { icon: '📚', text: 'Morda preberi kakšno knjigo?' },
+                { icon: '👨‍👩‍👧‍👦', text: 'Preživi čas z družino!' },
+                { icon: '🏃', text: 'Gibaj se in uživaj!' },
+                { icon: '🌈', text: 'Raziskuj svet okoli sebe!' }
+            ];
+
+            // Pick a random message
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+
+            menuContent.innerHTML = `
+                <div class="card bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 shadow-xl border-2 border-purple-200">
+                    <div class="card-body text-center py-12">
+                        <div class="text-7xl mb-6 animate-bounce">${emoji}</div>
+                        <h2 class="text-3xl font-black text-purple-600 mb-4">
+                            Danes je ${dayName}!
+                        </h2>
+                        <p class="text-xl text-gray-700 mb-6">
+                            Šola je zaprta, jedilnika ni. 🎉
+                        </p>
+                        <div class="divider"></div>
+                        <div class="bg-white/70 rounded-2xl p-6 mx-auto max-w-sm">
+                            <div class="text-5xl mb-3">${randomMessage.icon}</div>
+                            <p class="text-lg font-semibold text-gray-800">
+                                ${randomMessage.text}
+                            </p>
+                        </div>
+                        <div class="mt-8 flex justify-center gap-4 text-4xl">
+                            <span class="animate-pulse">🌻</span>
+                            <span class="animate-pulse" style="animation-delay: 0.2s">🦋</span>
+                            <span class="animate-pulse" style="animation-delay: 0.4s">🌸</span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-6">
+                            Odloži telefon in uživaj v vikendu! 📵
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            // Update the header to show weekend
+            document.getElementById('menuDateRange').textContent = 'Vikend - brez jedilnika';
+            document.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
+        }
+
         // Simple display of menu data
         function displayMenu(menuData) {
             const menuContent = document.getElementById('menuContent');
@@ -556,7 +620,14 @@
         }
 
         updateCurrentDay();
-        fetchMenuInfo();
+
+        // Check if it's weekend - show fun message instead of menu
+        if (isWeekend()) {
+            displayWeekendMessage();
+        } else {
+            fetchMenuInfo();
+        }
+
         updateTimestamp();
 
         // Enhanced touch support for allergen tooltips
