@@ -478,105 +478,16 @@
             }
         }
 
-        // Fetch menu data directly from the school website (client-side)
+        // Fetch menu data via Netlify function (avoids client-side CORS issues)
         async function fetchMenuInfo() {
             try {
-                // Use CORS proxy to fetch from school website
-                const corsProxy = 'https://corsproxy.io/?';
-                const menuPageUrl = 'https://ostrbovlje.si/prehrana/';
-
-                console.log('Fetching menu list from school website...');
-                const response = await fetch(corsProxy + encodeURIComponent(menuPageUrl));
-                const html = await response.text();
-
-                // Parse HTML to find current week's menu
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-
-                // Find current week's menu link
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); // Normalize to start of day
-                const isFriday = today.getDay() === 5; // JavaScript: Sunday=0, Friday=5
-
-                // Collect all menu links with their date ranges
-                const allMenus = [];
-                const links = doc.querySelectorAll('a[href*="jedilnik"]');
-
-                for (const link of links) {
-                    const text = link.textContent.trim();
-                    const dateMatch = text.match(/(\d{1,2})\.(\d{1,2})\.–(\d{1,2})\.(\d{1,2})\.\s*(\d{4})/);
-
-                    if (dateMatch) {
-                        const [_, startDay, startMonth, endDay, endMonth, year] = dateMatch;
-                        const startDate = new Date(year, parseInt(startMonth) - 1, parseInt(startDay));
-                        const endDate = new Date(year, parseInt(endMonth) - 1, parseInt(endDay));
-                        startDate.setHours(0, 0, 0, 0);
-                        endDate.setHours(0, 0, 0, 0);
-
-                        allMenus.push({
-                            link: link.href,
-                            text: text,
-                            startDate: startDate,
-                            endDate: endDate
-                        });
-                    }
+                console.log('Fetching menu via Netlify function...');
+                const response = await fetch('/api/menu', { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`API status ${response.status}`);
                 }
 
-                let currentMenuLink = null;
-                let currentMenuText = null;
-
-                // Priority 1: Menu where today falls within [startDate, endDate]
-                for (const menu of allMenus) {
-                    if (today >= menu.startDate && today <= menu.endDate) {
-                        currentMenuLink = menu.link;
-                        currentMenuText = menu.text;
-                        break;
-                    }
-                }
-
-                // Priority 2: If it's Friday and no match, look for menu where endDate == today
-                if (!currentMenuLink && isFriday) {
-                    for (const menu of allMenus) {
-                        if (menu.endDate.getTime() === today.getTime()) {
-                            currentMenuLink = menu.link;
-                            currentMenuText = menu.text;
-                            break;
-                        }
-                    }
-                }
-
-                // Priority 3: Most recent menu whose endDate >= today
-                if (!currentMenuLink) {
-                    const validMenus = allMenus
-                        .filter(m => m.endDate >= today)
-                        .sort((a, b) => b.startDate - a.startDate);
-                    if (validMenus.length > 0) {
-                        currentMenuLink = validMenus[0].link;
-                        currentMenuText = validMenus[0].text;
-                    }
-                }
-
-                // Priority 4: Fallback to most recent menu overall
-                if (!currentMenuLink && allMenus.length > 0) {
-                    allMenus.sort((a, b) => b.startDate - a.startDate);
-                    currentMenuLink = allMenus[0].link;
-                    currentMenuText = allMenus[0].text;
-                }
-
-                if (!currentMenuLink) {
-                    throw new Error('Ne morem najti jedilnika za ta teden');
-                }
-
-                console.log('Found current week menu:', currentMenuText);
-                console.log('Fetching menu from:', currentMenuLink);
-
-                // Fetch the actual menu page
-                const menuResponse = await fetch(corsProxy + encodeURIComponent(currentMenuLink));
-                const menuHtml = await menuResponse.text();
-                const menuDoc = parser.parseFromString(menuHtml, 'text/html');
-
-                // Parse the menu
-                const menuData = parseMenuFromHTML(menuDoc, currentMenuText, currentMenuLink);
+                const menuData = await response.json();
 
                 if (menuData.success && menuData.menu) {
                     // Update date range display
