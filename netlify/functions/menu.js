@@ -33,6 +33,7 @@ function getSloveniaDates() {
     sloveniaNow,
     todayUtc,
     isFriday: sloveniaNow.getDay() === 5,
+    isWeekend: sloveniaNow.getDay() === 0 || sloveniaNow.getDay() === 6,
   };
 }
 
@@ -100,6 +101,16 @@ function selectMenu(menus, fallbackLinks, todayUtc, isFriday) {
       if (menu.endDate.getTime() === todayMs) {
         return menu;
       }
+    }
+  }
+
+  if (menus.length > 0) {
+    const latestEnd = menus.reduce(
+      (latest, menu) => (menu.endDate > latest ? menu.endDate : latest),
+      menus[0].endDate
+    );
+    if (todayMs > latestEnd.getTime()) {
+      return null;
     }
   }
 
@@ -217,7 +228,19 @@ function parseMenuPage(html, menuTitle, menuUrl, sloveniaNow) {
 
 exports.handler = async function handler() {
   try {
-    const { sloveniaNow, todayUtc, isFriday } = getSloveniaDates();
+    const { sloveniaNow, todayUtc, isFriday, isWeekend } = getSloveniaDates();
+
+    if (isWeekend) {
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          success: false,
+          error: 'Jedilnik ni na voljo',
+          reason: 'weekend',
+        }),
+      };
+    }
 
     const listResponse = await fetch(MENU_URL, {
       headers: { 'User-Agent': USER_AGENT },
@@ -236,7 +259,8 @@ exports.handler = async function handler() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           success: false,
-          error: 'Ne morem najti jedilnika za ta teden',
+          error: 'Jedilnik ni na voljo',
+          reason: 'no-data',
         }),
       };
     }

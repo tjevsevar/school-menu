@@ -43,6 +43,10 @@ function runSelectionTests() {
   const publishedEarlyFriday = dateUtc(2026, 1, 9);
   const selectedEarly = _internals.selectMenu(menus, [], publishedEarlyFriday, true);
   assert.equal(selectedEarly.text, 'Jedilnik 5.1.–9.1. 2026');
+
+  const afterLastMenu = dateUtc(2026, 2, 2);
+  const selectedAfterLast = _internals.selectMenu(menus, [], afterLastMenu, false);
+  assert.equal(selectedAfterLast, null);
 }
 
 function runParsingTests() {
