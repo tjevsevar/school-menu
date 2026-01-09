@@ -593,7 +593,8 @@
 
             // Hide tooltips when touching outside
             document.addEventListener('touchstart', function (e) {
-                if (!e.target.classList.contains('allergen-badge')) {
+                const target = e.target instanceof Element ? e.target : e.target.parentElement;
+                if (!target || !target.closest('.allergen-badge')) {
                     document.querySelectorAll('.allergen-badge').forEach(badge => {
                         badge.classList.remove('tooltip-open');
                     });
@@ -602,7 +603,8 @@
 
             // Hide tooltips when clicking outside
             document.addEventListener('click', function (e) {
-                if (!e.target.classList.contains('allergen-badge')) {
+                const target = e.target instanceof Element ? e.target : e.target.parentElement;
+                if (!target || !target.closest('.allergen-badge')) {
                     document.querySelectorAll('.allergen-badge').forEach(badge => {
                         badge.classList.remove('tooltip-open');
                     });
