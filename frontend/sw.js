@@ -1,7 +1,6 @@
 // Simplified Service Worker for PWA functionality
-const CACHE_NAME = 'school-lunch-v5';
+const CACHE_NAME = 'school-lunch-v6';
 const urlsToCache = [
-  '/',
   '/manifest.json',
   '/school-logo.png'
 ];
@@ -36,7 +35,7 @@ self.addEventListener('fetch', (event) => {
   // Don't cache API requests - always fetch fresh
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(event.request).catch((error) => {
+      fetch(event.request, { cache: 'no-store' }).catch((error) => {
         console.log('API fetch failed:', error);
         return new Response(JSON.stringify({
           success: false,
@@ -49,7 +48,21 @@ self.addEventListener('fetch', (event) => {
     );
     return;
   }
-  
+
+  // Always go to the network for HTML so updates reach pinned users.
+  const acceptsHtml = event.request.headers.get('accept')?.includes('text/html');
+  if (event.request.mode === 'navigate' || acceptsHtml) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).catch((error) => {
+        console.log('Fetch failed:', error);
+        return new Response('<h1>Offline</h1><p>Please check your internet connection.</p>', {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      })
+    );
+    return;
+  }
+
   // For other requests, try cache first, then network
   event.respondWith(
     caches.match(event.request)
@@ -88,5 +101,11 @@ self.addEventListener('activate', (event) => {
     })
   );
   // Claim all clients immediately
-  return self.clients.claim();
+  return self.clients.claim().then(() => {
+    return self.clients.matchAll({ type: 'window' }).then((clients) => {
+      clients.forEach((client) => {
+        client.navigate(client.url);
+      });
+    });
+  });
 });
