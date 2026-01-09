@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const { _internals } = require('./menu');
+const { _internals } = require('../functions/menu');
 
 function dateUtc(year, month, day) {
   return new Date(Date.UTC(year, month - 1, day));
