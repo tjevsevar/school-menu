@@ -7,7 +7,8 @@
     "start": "python3 web_app/app.py",
     "dev": "python3 web_app/app.py",
     "build": "echo 'Static site - no build needed'",
-    "test": "python3 -c 'from school_lunch_checker import LunchMenuChecker; print(\"✅ App works!\")'"
+    "test": "python3 -c 'from school_lunch_checker import LunchMenuChecker; print(\"✅ App works!\")'",
+    "test:menu": "node netlify/functions/menu.test.js"
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.12"

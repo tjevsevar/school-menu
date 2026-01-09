@@ -275,3 +275,10 @@ exports.handler = async function handler() {
     };
   }
 };
+
+exports._internals = {
+  buildAbsoluteUrl,
+  parseMenuLinks,
+  selectMenu,
+  parseMenuPage,
+};
