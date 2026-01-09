@@ -114,7 +114,7 @@
                 </div>
 
                 <!-- Allergen Info -->
-                <div class="alert alert-info shadow-lg bg-blue-50 border-blue-300">
+                <div id="allergenInfo" class="alert alert-info shadow-lg bg-blue-50 border-blue-300">
                     <div class="flex-col items-start w-full">
                         <h3 class="font-bold text-lg text-blue-800">Kaj pomenijo črke? To so alergeni. Vprašaj
                             učitelja/co če te zanima več.</h3>
@@ -214,6 +214,7 @@
         // Display fun weekend message
         function displayWeekendMessage() {
             const menuContent = document.getElementById('menuContent');
+            const allergenInfo = document.getElementById('allergenInfo');
             const today = new Date();
             const isSaturday = today.getDay() === 6;
 
@@ -270,12 +271,20 @@
             // Update the header to show weekend
             document.getElementById('menuDateRange').textContent = 'Vikend - jedilnik ni na voljo';
             document.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
+            if (allergenInfo) {
+                allergenInfo.classList.add('hidden');
+            }
         }
 
         // Simple display of menu data
         function displayMenu(menuData) {
             const menuContent = document.getElementById('menuContent');
+            const allergenInfo = document.getElementById('allergenInfo');
             const menuText = menuData.menu;
+
+            if (allergenInfo) {
+                allergenInfo.classList.remove('hidden');
+            }
 
             // Check if this is an error message
             if (menuText.startsWith('❌') || menuText.includes('Ne morem najti') || menuText.includes('Napaka')) {
