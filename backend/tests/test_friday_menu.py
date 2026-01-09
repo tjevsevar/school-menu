@@ -10,11 +10,38 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch, MagicMock
 import sys
 import os
+import importlib
+from pathlib import Path
 
-# Add the parent directory to the path
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Ensure both backend and repository root are on sys.path so we can import
+# both the desktop (backend) and Netlify function implementations.
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+for path in (str(BACKEND_ROOT), str(PROJECT_ROOT)):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
-from school_lunch_checker import LunchMenuChecker
+MODULE_PATHS = [
+    ("backend", "school_lunch_checker"),
+    ("netlify", "netlify.functions.school_lunch_checker"),
+]
+
+
+@pytest.fixture(params=MODULE_PATHS, ids=[name for name, _ in MODULE_PATHS])
+def menu_module(request):
+    """Provide each LunchMenuChecker implementation for parametrized tests."""
+    _, module_path = request.param
+    return importlib.import_module(module_path)
+
+
+def _build_checker(menu_module):
+    """Create a LunchMenuChecker instance with __init__ bypassed for testing."""
+    with patch.object(menu_module.LunchMenuChecker, '__init__', lambda self: None):
+        checker = menu_module.LunchMenuChecker()
+    checker.base_url = "https://ostrbovlje.si"
+    checker.menu_url = "https://ostrbovlje.si/prehrana/"
+    checker.session = Mock()
+    return checker
 
 
 class TestFridayMenuSelection:
@@ -27,8 +54,7 @@ class TestFridayMenuSelection:
         mock.get = Mock(return_value=href)
         return mock
     
-    @patch.object(LunchMenuChecker, '__init__', lambda x: None)
-    def test_friday_with_next_week_menu_published(self):
+    def test_friday_with_next_week_menu_published(self, menu_module):
         """
         Scenario: It's Friday (Dec 20, 2024) and school has published next week's menu.
         
@@ -38,10 +64,7 @@ class TestFridayMenuSelection:
         
         Expected: Should return current week's menu (Dec 16-20)
         """
-        checker = LunchMenuChecker()
-        checker.base_url = "https://ostrbovlje.si"
-        checker.menu_url = "https://ostrbovlje.si/prehrana/"
-        checker.session = Mock()
+        checker = _build_checker(menu_module)
         
         # Mock the HTML response with both menus
         mock_html = """
@@ -61,7 +84,7 @@ class TestFridayMenuSelection:
         # Mock datetime.now() to return Friday Dec 20, 2024
         friday_date = datetime(2024, 12, 20, 12, 0, 0)
         
-        with patch('school_lunch_checker.datetime') as mock_datetime:
+        with patch(f'{menu_module.__name__}.datetime') as mock_datetime:
             mock_datetime.now.return_value = friday_date
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
             
@@ -72,8 +95,7 @@ class TestFridayMenuSelection:
         assert result['end_date'].day == 20
         assert result['end_date'].month == 12
     
-    @patch.object(LunchMenuChecker, '__init__', lambda x: None)
-    def test_normal_weekday_still_works(self):
+    def test_normal_weekday_still_works(self, menu_module):
         """
         Scenario: It's Wednesday (Dec 18, 2024), normal case.
         
@@ -82,10 +104,7 @@ class TestFridayMenuSelection:
         
         Expected: Should return current week's menu
         """
-        checker = LunchMenuChecker()
-        checker.base_url = "https://ostrbovlje.si"
-        checker.menu_url = "https://ostrbovlje.si/prehrana/"
-        checker.session = Mock()
+        checker = _build_checker(menu_module)
         
         mock_html = """
         <html>
@@ -103,7 +122,7 @@ class TestFridayMenuSelection:
         # Mock datetime.now() to return Wednesday Dec 18, 2024
         wednesday_date = datetime(2024, 12, 18, 12, 0, 0)
         
-        with patch('school_lunch_checker.datetime') as mock_datetime:
+        with patch(f'{menu_module.__name__}.datetime') as mock_datetime:
             mock_datetime.now.return_value = wednesday_date
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
             
@@ -112,8 +131,7 @@ class TestFridayMenuSelection:
         assert result is not None
         assert '16.12.–20.12' in result['text']
     
-    @patch.object(LunchMenuChecker, '__init__', lambda x: None)  
-    def test_friday_only_next_week_available(self):
+    def test_friday_only_next_week_available(self, menu_module):
         """
         Scenario: It's Friday but only next week's menu is available.
         
@@ -122,10 +140,7 @@ class TestFridayMenuSelection:
         
         Expected: Should return next week's menu as fallback
         """
-        checker = LunchMenuChecker()
-        checker.base_url = "https://ostrbovlje.si"
-        checker.menu_url = "https://ostrbovlje.si/prehrana/"
-        checker.session = Mock()
+        checker = _build_checker(menu_module)
         
         mock_html = """
         <html>
@@ -143,7 +158,7 @@ class TestFridayMenuSelection:
         # Mock datetime.now() to return Friday Dec 20, 2024
         friday_date = datetime(2024, 12, 20, 12, 0, 0)
         
-        with patch('school_lunch_checker.datetime') as mock_datetime:
+        with patch(f'{menu_module.__name__}.datetime') as mock_datetime:
             mock_datetime.now.return_value = friday_date
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
             
@@ -157,13 +172,9 @@ class TestFridayMenuSelection:
 class TestMenuPriorityOrder:
     """Test that menu selection follows correct priority order."""
     
-    @patch.object(LunchMenuChecker, '__init__', lambda x: None)
-    def test_priority_1_exact_match(self):
+    def test_priority_1_exact_match(self, menu_module):
         """Priority 1: Today falls within menu date range."""
-        checker = LunchMenuChecker()
-        checker.base_url = "https://ostrbovlje.si"
-        checker.menu_url = "https://ostrbovlje.si/prehrana/"
-        checker.session = Mock()
+        checker = _build_checker(menu_module)
         
         mock_html = """
         <html>
@@ -182,7 +193,7 @@ class TestMenuPriorityOrder:
         # Wednesday is within Dec 16-20 range
         wednesday_date = datetime(2024, 12, 18, 12, 0, 0)
         
-        with patch('school_lunch_checker.datetime') as mock_datetime:
+        with patch(f'{menu_module.__name__}.datetime') as mock_datetime:
             mock_datetime.now.return_value = wednesday_date
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
             
