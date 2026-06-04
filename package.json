@@ -4,14 +4,14 @@
   "description": "School Lunch Menu Checker - Progressive Web App",
   "main": "frontend/index.html",
   "scripts": {
-    "start": "python3 web_app/app.py",
-    "dev": "python3 web_app/app.py",
+    "start": "python3 backend/app.py",
+    "dev": "python3 backend/app.py",
     "build": "echo 'Static site - no build needed'",
-    "test": "python3 -c 'from school_lunch_checker import LunchMenuChecker; print(\"✅ App works!\")'",
+    "test": "npm run test:menu && python3 -m pytest backend && npm --prefix frontend test",
     "test:menu": "node netlify/tests/menu.test.js"
   },
   "dependencies": {
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "1.0.0-rc.12"
   },
   "keywords": [
     "school",

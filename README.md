@@ -18,16 +18,20 @@ A Progressive Web App to check your son's daily school lunch menu from Osnovna �
 ```
 SchoolLunchChecker/
 ├── frontend/          # All client-side code
-│   ├── index.html     # Main PWA application
+│   ├── index.html     # Main PWA shell
+│   ├── app.js         # Frontend fetch and rendering logic
+│   ├── styles.css     # Small custom styles
 │   ├── manifest.json  # PWA manifest
 │   ├── sw.js         # Service worker
 │   └── icon-*.png    # PWA icons
-├── backend/           # All serverless functions and backend logic
+├── backend/           # Local Flask server and legacy Python scraper
 │   ├── school_lunch_checker.py  # Main Python scraper
-│   ├── menu.py       # Netlify serverless function
 │   ├── app.py        # Local Flask development server
 │   ├── requirements.txt  # Python dependencies
 │   └── launch_*.sh   # Legacy launcher scripts
+├── netlify/
+│   └── functions/
+│       └── menu.js    # Production serverless menu API
 ├── docs/             # All documentation
 │   ├── USAGE_GUIDE.md
 │   ├── DEPLOYMENT_GUIDE.md
@@ -86,7 +90,7 @@ flake8 .
 ```
 
 #### JavaScript (Frontend)
-We use `eslint` for JavaScript linting:
+The frontend uses deterministic Node syntax checks for the static JavaScript files:
 
 ```bash
 # Install dependencies
@@ -95,9 +99,6 @@ npm install
 
 # Run linting
 npm run lint
-
-# Auto-fix linting issues where possible
-npm run lint:fix
 ```
 
 ### Testing
@@ -123,26 +124,29 @@ pytest backend/
 ```
 
 #### JavaScript (Frontend)
-We use `Jest` for frontend testing:
+Frontend tests run with Node and a small fake DOM:
 
 ```bash
-# Install dependencies (includes Jest)
+# Install dependencies
 cd frontend
 npm install
 
 # Run all tests
 npm test
+```
 
-# Run tests with coverage
-npm test -- --coverage
+#### Full Test Suite
+From the project root:
+```bash
+npm test
 ```
 
 ### Continuous Integration
 
 The project includes automated CI/CD workflows that run on every push and pull request:
 
-- **Python Linting & Testing**: Runs `black --check`, `flake8`, and `pytest` on backend code
-- **JavaScript Linting & Testing**: Runs `eslint` and `jest` on frontend code
+- **Python Testing**: Runs `pytest` on backend code
+- **JavaScript Testing**: Runs Netlify parser tests and frontend rendering tests
 - **Integration Testing**: Verifies that the app imports and basic functionality work
 
 All checks must pass before code can be merged. Tests run automatically in GitHub Actions.
@@ -152,8 +156,8 @@ All checks must pass before code can be merged. Tests run automatically in GitHu
 1. **Fetches the main menu page** from https://ostrbovlje.si/prehrana/
 2. **Identifies the current week's menu** by parsing date ranges in menu links
 3. **Downloads the current week's detailed menu**
-4. **Extracts today's specific lunch** by matching the current day
-5. **Displays the result** in a clean, readable format
+4. **Extracts today's specific lunch** into structured meal data
+5. **Displays the result** safely with text rendering and allergen badges
 
 ## Features Explained
 
@@ -171,10 +175,10 @@ All checks must pass before code can be merged. Tests run automatically in GitHu
 
 ## Technical Details
 
-- **Language**: Python 3.6+
-- **GUI Framework**: Tkinter (built into Python)
-- **Web Scraping**: requests + BeautifulSoup
-- **Date Handling**: datetime module
+- **Frontend**: Static HTML, CSS, and JavaScript PWA
+- **Production API**: Netlify Node function using Cheerio
+- **Local Backend**: Flask + Python scraper
+- **Date Handling**: Europe/Ljubljana-aware production API dates
 
 ## Example Output
 

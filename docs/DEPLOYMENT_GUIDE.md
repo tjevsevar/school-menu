@@ -23,7 +23,7 @@ Your School Lunch Checker web app can be hosted for **FREE** on several platform
 
 3. **Files Ready for Deployment**
    - ✅ `netlify.toml` - Configuration file
-   - ✅ `netlify/functions/menu.py` - Serverless API
+   - ✅ `netlify/functions/menu.js` - Serverless API
    - ✅ `frontend/index.html` - Main interface
    - ✅ All supporting files included
 
@@ -97,17 +97,18 @@ Your School Lunch Checker web app can be hosted for **FREE** on several platform
 ### **Files Structure:**
 ```
 SchoolLunchChecker/
-├── web_app/
+├── frontend/
 │   ├── index.html           # Main interface
+│   ├── app.js               # Frontend logic
+│   ├── styles.css           # Custom styles
 │   ├── manifest.json        # PWA config
-│   ├── sw.js               # Service worker
-│   └── icons/              # App icons
+│   ├── sw.js                # Service worker
+│   └── school-logo.png      # App icon
 ├── netlify/
 │   └── functions/
-│       ├── menu.py         # API endpoint
-│       └── requirements.txt # Dependencies
+│       └── menu.js          # API endpoint
 ├── netlify.toml            # Netlify config
-└── school_lunch_checker.py # Core logic
+└── backend/                 # Local Flask/Python development path
 ```
 
 ### **API Endpoint:**
@@ -121,8 +122,8 @@ SchoolLunchChecker/
 ### **Common Issues:**
 
 1. **"Function not working"**
-   - Check `netlify/functions/menu.py` exists
-   - Verify `requirements.txt` is present
+   - Check `netlify/functions/menu.js` exists
+   - Run `npm run test:menu` locally
 
 2. **"Site not loading"**
    - Ensure `frontend/index.html` exists

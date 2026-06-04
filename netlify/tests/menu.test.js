@@ -49,7 +49,42 @@ function runSelectionTests() {
   assert.equal(selectedAfterLast, null);
 }
 
-function runParsingTests() {
+function runLinkParsingTests() {
+  const html = `
+    <a href="/prehrana/jedilnik/current">Jedilnik 12.1.-16.1. 2026</a>
+    <a href="https://ostrbovlje.si/prehrana/jedilnik/next">Jedilnik 19.1.–23.1. 2026</a>
+    <a href="/novice">Novice</a>
+  `;
+  const { menus, fallbackLinks } = _internals.parseMenuLinks(html);
+
+  assert.equal(menus.length, 2);
+  assert.equal(fallbackLinks.length, 0);
+  assert.equal(menus[0].url, 'https://ostrbovlje.si/prehrana/jedilnik/current');
+  assert.equal(menus[0].startDate.toISOString(), '2026-01-12T00:00:00.000Z');
+  assert.equal(menus[1].url, 'https://ostrbovlje.si/prehrana/jedilnik/next');
+}
+
+function runFoodParsingTests() {
+  assert.deepEqual(_internals.parseFoodItem('kruh – G, J'), {
+    name: 'kruh',
+    allergens: ['G', 'J'],
+    raw: 'kruh – G, J',
+  });
+  assert.deepEqual(_internals.parseFoodItem('sadje'), {
+    name: 'sadje',
+    allergens: [],
+    raw: 'sadje',
+  });
+}
+
+function runDateParsingTests() {
+  const parsed = _internals.parseIsoDate('2026-06-03');
+  assert.equal(parsed.toISOString(), '2026-06-03T12:00:00.000Z');
+  assert.equal(_internals.parseIsoDate('2026/06/03'), null);
+  assert.equal(_internals.parseIsoDate(undefined), null);
+}
+
+function runMenuPageParsingTests() {
   const html = `
     <table>
       <tr>
@@ -60,8 +95,9 @@ function runParsingTests() {
       </tr>
       <tr>
         <th>PET</th>
-        <td>pet snack</td>
-        <td>pet lunch</td>
+        <td>pet snack – G
+banana</td>
+        <td>pet lunch – L, GS</td>
         <td>pet pop</td>
       </tr>
     </table>
@@ -76,13 +112,26 @@ function runParsingTests() {
   );
 
   assert.equal(menuData.success, true);
+  assert.equal(menuData.date, '2026-01-16');
+  assert.equal(menuData.day.short, 'PET');
+  assert.equal(menuData.date_range, '12.1.–16.1. 2026');
+  assert.deepEqual(menuData.meals.malica, [
+    { name: 'pet snack', allergens: ['G'], raw: 'pet snack – G' },
+    { name: 'banana', allergens: [], raw: 'banana' },
+  ]);
+  assert.deepEqual(menuData.meals.kosilo, [
+    { name: 'pet lunch', allergens: ['L', 'GS'], raw: 'pet lunch – L, GS' },
+  ]);
   assert.ok(menuData.menu.includes('PET, 16.01'));
-  assert.ok(menuData.menu.includes('pet snack'));
-  assert.ok(menuData.menu.includes('pet lunch'));
-  assert.ok(menuData.menu.includes('pet pop'));
+  assert.ok(menuData.menu.includes('pet snack–G'));
+  assert.ok(menuData.menu.includes('pet lunch–L, GS'));
 }
 
 runSelectionTests();
-runParsingTests();
+runLinkParsingTests();
+runFoodParsingTests();
+runDateParsingTests();
+runMenuPageParsingTests();
 
-console.log('All menu edge-case tests passed.');
+console.log('All menu parser tests passed.');
+setImmediate(() => process.exit(0));

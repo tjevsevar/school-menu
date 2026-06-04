@@ -26,8 +26,8 @@ Replace `YOURUSERNAME` with your actual GitHub username.
 4. Click **"Link to repository"**
 5. Choose **GitHub** and select your repository
 6. Set build settings:
-   - **Build command**: `echo "Static site"`
-   - **Publish directory**: `web_app`
+   - **Build command**: `echo "Static site build complete"`
+   - **Publish directory**: `frontend`
 
 ## Step 4: Test Auto-Deploy
 Make any small change to your code and push:

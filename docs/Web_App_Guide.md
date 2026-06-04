@@ -40,12 +40,12 @@ I've created a **beautiful mobile web app** that works like a native app but run
 
 **GitHub Pages (Free):**
 1. Create GitHub account
-2. Upload web_app files
+2. Upload frontend files
 3. Enable GitHub Pages
 4. Share the URL: `https://yourusername.github.io/school-lunch`
 
 **Netlify (Free):**
-1. Drag web_app folder to netlify.com
+1. Deploy the project folder to netlify.com
 2. Get instant URL
 3. Share with parents
 
@@ -56,7 +56,7 @@ I've created a **beautiful mobile web app** that works like a native app but run
 
 ### **Option 2: Your Mac as Server**
 ```bash
-cd web_app
+cd backend
 python3 app.py
 ```
 Then share: `http://YOUR_IP:8080`
@@ -110,10 +110,12 @@ The web app has:
 
 ### **Files Created:**
 - `index.html` - Main web app
+- `app.js` - Frontend menu fetching and rendering
+- `styles.css` - Small custom styles
 - `manifest.json` - PWA configuration
 - `sw.js` - Service worker for offline functionality
-- `icon-192.png` / `icon-512.png` - App icons
-- `app.py` - Optional Flask server
+- `school-logo.png` - App icon
+- `backend/app.py` - Optional Flask server
 
 ### **Features:**
 - **Progressive Web App** - installable
@@ -129,7 +131,7 @@ The web app has:
 
 ### **Quick Deploy to Netlify:**
 1. **Go to netlify.com**
-2. **Drag the `web_app` folder** to the deploy area
+2. **Connect the repository or drag the project folder** to the deploy area
 3. **Get your URL** (e.g., `https://amazing-lunch-menu.netlify.app`)
 4. **Share with parents**
 

@@ -6,6 +6,28 @@ const TIMEZONE = 'Europe/Ljubljana';
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
+const ALLERGENS = {
+  G: 'gluten',
+  J: 'jajce',
+  S: 'soja',
+  L: 'laktoza',
+  GS: 'gorčično seme',
+  R: 'ribe',
+  O: 'oreščki',
+  SE: 'sezam',
+  Z: 'zelena',
+  ŽD: 'žveplov dioksid',
+  RA: 'raki',
+  M: 'mehkužci',
+  V: 'volčji bob',
+};
+
+const MEAL_LABELS = {
+  malica: 'MALICA',
+  kosilo: 'KOSILO',
+  popMalica: 'POP. MALICA',
+};
+
 function buildAbsoluteUrl(href) {
   if (!href) return null;
   if (href.startsWith('/')) {
@@ -17,9 +39,9 @@ function buildAbsoluteUrl(href) {
   return `${BASE_URL}/${href}`;
 }
 
-function getSloveniaDates() {
+function getSloveniaDates(now = new Date()) {
   const sloveniaNow = new Date(
-    new Date().toLocaleString('en-US', { timeZone: TIMEZONE })
+    now.toLocaleString('en-US', { timeZone: TIMEZONE })
   );
   const todayUtc = new Date(
     Date.UTC(
@@ -37,51 +59,59 @@ function getSloveniaDates() {
   };
 }
 
+function parseIsoDate(dateString) {
+  if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return null;
+  }
+
+  const [year, month, day] = dateString.split('-').map((part) => parseInt(part, 10));
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+}
+
 function parseMenuLinks(html) {
   const $ = cheerio.load(html);
   const menus = [];
   const fallbackLinks = [];
   const dateRegex =
-    /(\d{1,2})\.(\d{1,2})\.–(\d{1,2})\.(\d{1,2})\.\s*(\d{4})/;
+    /(\d{1,2})\.(\d{1,2})\.[–-](\d{1,2})\.(\d{1,2})\.\s*(\d{4})/;
 
   $('a[href]').each((_, element) => {
     const text = $(element).text().trim();
     const href = $(element).attr('href');
-    if (!text || !href) {
+    if (!text || !href || !text.toLowerCase().includes('jedilnik')) {
       return;
     }
-    if (text.includes('Jedilnik') || text.toLowerCase().includes('jedilnik')) {
-      const url = buildAbsoluteUrl(href);
-      if (!url) {
-        return;
-      }
-      const match = text.match(dateRegex);
-      if (match) {
-        const [, startDay, startMonth, endDay, endMonth, year] = match;
-        const startDate = new Date(
-          Date.UTC(
-            parseInt(year, 10),
-            parseInt(startMonth, 10) - 1,
-            parseInt(startDay, 10)
-          )
-        );
-        const endDate = new Date(
-          Date.UTC(
-            parseInt(year, 10),
-            parseInt(endMonth, 10) - 1,
-            parseInt(endDay, 10)
-          )
-        );
-        menus.push({
-          url,
-          text,
-          startDate,
-          endDate,
-        });
-      } else {
-        fallbackLinks.push({ url, text });
-      }
+
+    const url = buildAbsoluteUrl(href);
+    if (!url) {
+      return;
     }
+
+    const match = text.match(dateRegex);
+    if (!match) {
+      fallbackLinks.push({ url, text });
+      return;
+    }
+
+    const [, startDay, startMonth, endDay, endMonth, year] = match;
+    menus.push({
+      url,
+      text,
+      startDate: new Date(
+        Date.UTC(
+          parseInt(year, 10),
+          parseInt(startMonth, 10) - 1,
+          parseInt(startDay, 10)
+        )
+      ),
+      endDate: new Date(
+        Date.UTC(
+          parseInt(year, 10),
+          parseInt(endMonth, 10) - 1,
+          parseInt(endDay, 10)
+        )
+      ),
+    });
   });
 
   return { menus, fallbackLinks };
@@ -90,17 +120,18 @@ function parseMenuLinks(html) {
 function selectMenu(menus, fallbackLinks, todayUtc, isFriday) {
   const todayMs = todayUtc.getTime();
 
-  for (const menu of menus) {
-    if (menu.startDate.getTime() <= todayMs && menu.endDate.getTime() >= todayMs) {
-      return menu;
-    }
+  const exactMatch = menus.find(
+    (menu) =>
+      menu.startDate.getTime() <= todayMs && menu.endDate.getTime() >= todayMs
+  );
+  if (exactMatch) {
+    return exactMatch;
   }
 
   if (isFriday) {
-    for (const menu of menus) {
-      if (menu.endDate.getTime() === todayMs) {
-        return menu;
-      }
+    const fridayMatch = menus.find((menu) => menu.endDate.getTime() === todayMs);
+    if (fridayMatch) {
+      return fridayMatch;
     }
   }
 
@@ -122,15 +153,10 @@ function selectMenu(menus, fallbackLinks, todayUtc, isFriday) {
   }
 
   if (menus.length > 0) {
-    menus.sort((a, b) => b.startDate - a.startDate);
-    return menus[0];
+    return [...menus].sort((a, b) => b.startDate - a.startDate)[0];
   }
 
-  if (fallbackLinks.length > 0) {
-    return fallbackLinks[0];
-  }
-
-  return null;
+  return fallbackLinks[0] || null;
 }
 
 function splitItems(text) {
@@ -140,8 +166,33 @@ function splitItems(text) {
     .filter((item) => item.length > 1);
 }
 
-function parseMenuPage(html, menuTitle, menuUrl, sloveniaNow) {
-  const $ = cheerio.load(html);
+function parseFoodItem(rawItem) {
+  const raw = rawItem.trim();
+  const allergenMatch = raw.match(/^(.+?)\s*[–-]\s*(.+)$/);
+
+  if (!allergenMatch) {
+    return { name: raw, allergens: [], raw };
+  }
+
+  const parsedAllergens = allergenMatch[2]
+    .split(/[,\s]+/)
+    .map((code) => code.trim())
+    .filter((code) => Object.prototype.hasOwnProperty.call(ALLERGENS, code));
+
+  return {
+    name: allergenMatch[1].trim(),
+    allergens: parsedAllergens,
+    raw,
+  };
+}
+
+function parseMealItems(text) {
+  return splitItems(text)
+    .map(parseFoodItem)
+    .filter((item) => item.name.length > 1);
+}
+
+function formatDateParts(sloveniaNow) {
   const dayShort = {
     0: 'NED',
     1: 'PON',
@@ -160,14 +211,57 @@ function parseMenuPage(html, menuTitle, menuUrl, sloveniaNow) {
     'petek',
     'sobota',
   ];
-  const todayShort = dayShort[sloveniaNow.getDay()];
-  const dayName = dayNames[sloveniaNow.getDay()];
   const day = String(sloveniaNow.getDate()).padStart(2, '0');
   const month = String(sloveniaNow.getMonth() + 1).padStart(2, '0');
-  const formattedDate = `${day}.${month}.${sloveniaNow.getFullYear()}`;
-  const shortDate = `${day}.${month}`;
+  const year = sloveniaNow.getFullYear();
 
+  return {
+    isoDate: `${year}-${month}-${day}`,
+    dayName: dayNames[sloveniaNow.getDay()],
+    dayShort: dayShort[sloveniaNow.getDay()],
+    formattedDate: `${day}.${month}.${year}`,
+    shortDate: `${day}.${month}`,
+  };
+}
+
+function formatLegacyMeal(items) {
+  return items
+    .map((item) => {
+      if (item.allergens.length === 0) {
+        return item.name;
+      }
+      return `${item.name}–${item.allergens.join(', ')}`;
+    })
+    .join(' | ');
+}
+
+function formatLegacyMenu(menuTitle, dateParts, meals) {
+  let menu = `🍽️ Kosilo za ${dateParts.dayName}, ${dateParts.formattedDate}\n`;
+  menu += `📋 Jedilnik: ${menuTitle}\n\n`;
+  menu += `${dateParts.dayShort}, ${dateParts.shortDate}\n`;
+  menu += `🥗 MALICA: ${formatLegacyMeal(meals.malica)}\n`;
+  menu += `🍝 KOSILO: ${formatLegacyMeal(meals.kosilo)}\n`;
+  menu += `🍎 POP. MALICA: ${formatLegacyMeal(meals.popMalica)}\n`;
+  menu += `\n📋 ALERGENI:\n`;
+  menu += `G = gluten, J = jajce, S = soja\n`;
+  menu += `L = laktoza, GS = gorčično seme, R = ribe\n`;
+  menu += `O = oreščki, SE = sezam, ŽD = žveplov dioksid\n`;
+  menu += `RA = raki, M = mehkužci, V = volčji bob`;
+  return menu;
+}
+
+function extractDateRange(menuTitle) {
+  const dateMatch = menuTitle.match(
+    /(\d{1,2}\.\s*\d{1,2}\.\s*[–-]\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/
+  );
+  return dateMatch ? dateMatch[1] : null;
+}
+
+function parseMenuPage(html, menuTitle, menuUrl, sloveniaNow) {
+  const $ = cheerio.load(html);
+  const dateParts = formatDateParts(sloveniaNow);
   const table = $('table').first();
+
   if (!table.length) {
     return { success: false, error: 'Ne morem najti tabele jedilnika' };
   }
@@ -182,13 +276,16 @@ function parseMenuPage(html, menuTitle, menuUrl, sloveniaNow) {
       return;
     }
     const firstCellText = $(cells[0]).text().trim().toUpperCase();
-    if (firstCellText === todayShort) {
+    if (firstCellText === dateParts.dayShort) {
       todayRow = row;
     }
   });
 
   if (!todayRow) {
-    return { success: false, error: `Ne morem najti jedilnika za ${todayShort}` };
+    return {
+      success: false,
+      error: `Ne morem najti jedilnika za ${dateParts.dayShort}`,
+    };
   }
 
   const cells = $(todayRow).find('td, th');
@@ -196,50 +293,56 @@ function parseMenuPage(html, menuTitle, menuUrl, sloveniaNow) {
     return { success: false, error: 'Nepopolna struktura tabele' };
   }
 
-  const malicaItems = splitItems($(cells[1]).text());
-  const kosiloItems = splitItems($(cells[2]).text());
-  const popMalicaItems = splitItems($(cells[3]).text());
-
-  let menu = `🍽️ Kosilo za ${dayName}, ${formattedDate}\n`;
-  menu += `📋 Jedilnik: ${menuTitle}\n\n`;
-  menu += `${todayShort}, ${shortDate}\n`;
-  menu += `🥗 MALICA: ${malicaItems.join(' | ')}\n`;
-  menu += `🍝 KOSILO: ${kosiloItems.join(' | ')}\n`;
-  menu += `🍎 POP. MALICA: ${popMalicaItems.join(' | ')}\n`;
-
-  menu += `\n📋 ALERGENI:\n`;
-  menu += `G = gluten, J = jajce, S = soja\n`;
-  menu += `L = laktoza, GS = gorčično seme, R = ribe\n`;
-  menu += `O = oreščki, SE = sezam, ŽD = žveplov dioksid\n`;
-  menu += `RA = raki, M = mehkužci, V = volčji bob`;
-
-  const dateMatch = menuTitle.match(
-    /(\d{1,2}\.\s*\d{1,2}\.\s*–\s*\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/
-  );
+  const meals = {
+    malica: parseMealItems($(cells[1]).text()),
+    kosilo: parseMealItems($(cells[2]).text()),
+    popMalica: parseMealItems($(cells[3]).text()),
+  };
 
   return {
     success: true,
-    menu,
+    date: dateParts.isoDate,
+    day: {
+      name: dateParts.dayName,
+      short: dateParts.dayShort,
+      formatted: dateParts.formattedDate,
+      shortDate: dateParts.shortDate,
+    },
+    menu: formatLegacyMenu(menuTitle, dateParts, meals),
     menu_title: menuTitle,
     source_url: menuUrl,
-    date_range: dateMatch ? dateMatch[1] : null,
+    date_range: extractDateRange(menuTitle),
+    meal_labels: MEAL_LABELS,
+    meals,
+    allergens: ALLERGENS,
   };
 }
 
-exports.handler = async function handler() {
+function jsonResponse(body, statusCode = 200, extraHeaders = {}) {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      ...extraHeaders,
+    },
+    body: JSON.stringify(body),
+  };
+}
+
+exports.handler = async function handler(event = {}) {
   try {
-    const { sloveniaNow, todayUtc, isFriday, isWeekend } = getSloveniaDates();
+    const query = event.queryStringParameters || {};
+    const requestedDate = parseIsoDate(query.test_date || query.date);
+    const { sloveniaNow, todayUtc, isFriday, isWeekend } = getSloveniaDates(
+      requestedDate || new Date()
+    );
 
     if (isWeekend) {
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: false,
-          error: 'Jedilnik ni na voljo',
-          reason: 'weekend',
-        }),
-      };
+      return jsonResponse({
+        success: false,
+        error: 'Jedilnik ni na voljo',
+        reason: 'weekend',
+      });
     }
 
     const listResponse = await fetch(MENU_URL, {
@@ -248,21 +351,16 @@ exports.handler = async function handler() {
     if (!listResponse.ok) {
       throw new Error(`Menu list request failed: ${listResponse.status}`);
     }
-    const listHtml = await listResponse.text();
 
-    const { menus, fallbackLinks } = parseMenuLinks(listHtml);
+    const { menus, fallbackLinks } = parseMenuLinks(await listResponse.text());
     const selectedMenu = selectMenu(menus, fallbackLinks, todayUtc, isFriday);
 
     if (!selectedMenu || !selectedMenu.url) {
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: false,
-          error: 'Jedilnik ni na voljo',
-          reason: 'no-data',
-        }),
-      };
+      return jsonResponse({
+        success: false,
+        error: 'Jedilnik ni na voljo',
+        reason: 'no-data',
+      });
     }
 
     const menuResponse = await fetch(selectedMenu.url, {
@@ -271,38 +369,38 @@ exports.handler = async function handler() {
     if (!menuResponse.ok) {
       throw new Error(`Menu page request failed: ${menuResponse.status}`);
     }
-    const menuHtml = await menuResponse.text();
 
-    const menuData = parseMenuPage(
-      menuHtml,
-      selectedMenu.text || 'Jedilnik',
-      selectedMenu.url,
-      sloveniaNow
+    return jsonResponse(
+      parseMenuPage(
+        await menuResponse.text(),
+        selectedMenu.text || 'Jedilnik',
+        selectedMenu.url,
+        sloveniaNow
+      ),
+      200,
+      { 'Cache-Control': 'max-age=300' }
     );
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'max-age=300',
-      },
-      body: JSON.stringify(menuData),
-    };
   } catch (error) {
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Napaka pri nalaganju jedilnika.',
-      }),
-    };
+    return jsonResponse({
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Napaka pri nalaganju jedilnika.',
+    });
   }
 };
 
 exports._internals = {
+  ALLERGENS,
   buildAbsoluteUrl,
+  extractDateRange,
+  formatDateParts,
+  getSloveniaDates,
+  parseIsoDate,
+  parseFoodItem,
+  parseMealItems,
   parseMenuLinks,
-  selectMenu,
   parseMenuPage,
+  selectMenu,
 };

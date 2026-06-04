@@ -3,16 +3,11 @@
   "version": "1.0.0",
   "description": "Frontend for School Lunch Checker Progressive Web App",
   "scripts": {
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "test": "jest"
+    "lint": "node --check app.js && node --check sw.js && node --check tests/app.test.js",
+    "test": "node tests/app.test.js"
   },
   "devDependencies": {
-    "@eslint/js": "^8.50.0",
     "daisyui": "^5.1.18",
-    "eslint": "^8.50.0",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
     "tailwindcss": "^4.1.13"
   },
   "keywords": [

@@ -1,8 +1,10 @@
 // Simplified Service Worker for PWA functionality
-const CACHE_NAME = 'school-lunch-v6';
+const CACHE_NAME = 'school-lunch-v8';
 const urlsToCache = [
+  '/app.js',
   '/manifest.json',
-  '/school-logo.png'
+  '/school-logo.png',
+  '/styles.css'
 ];
 
 // Install event - cache basic resources only
@@ -44,6 +46,17 @@ self.addEventListener('fetch', (event) => {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
         });
+      })
+    );
+    return;
+  }
+
+  // Keep UI code fresh so installed users see design and bug fixes immediately.
+  if (url.pathname === '/app.js' || url.pathname === '/styles.css') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).catch((error) => {
+        console.log('Asset fetch failed:', error);
+        return caches.match(event.request);
       })
     );
     return;

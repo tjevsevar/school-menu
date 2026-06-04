@@ -26,7 +26,7 @@ def test_imports():
     import requests
     import bs4
     import flask
-    
+
     # Just verify the modules can be imported
     assert requests is not None
     assert bs4 is not None

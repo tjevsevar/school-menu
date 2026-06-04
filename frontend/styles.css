@@ -1,0 +1,684 @@
+:root {
+    --ink: #102433;
+    --muted: #6a7a87;
+    --surface: rgba(255, 255, 255, 0.78);
+    --surface-strong: rgba(255, 255, 255, 0.94);
+    --line: rgba(16, 36, 51, 0.1);
+    --shadow: 0 22px 54px rgba(20, 35, 49, 0.16);
+    --blue: #18a7ff;
+    --mint: #34d399;
+    --lime: #bbf451;
+    --coral: #ff5f6d;
+    --sun: #ffbf3c;
+    --violet: #8b5cf6;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.app-body {
+    color: var(--ink);
+    background:
+        linear-gradient(120deg, rgba(19, 40, 58, 0.92), rgba(13, 114, 164, 0.72) 42%, rgba(52, 211, 153, 0.58)),
+        repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.11) 0 1px, transparent 1px 26px);
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app-body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 34%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 84px);
+    mask-image: linear-gradient(180deg, #000, transparent 86%);
+}
+
+.app-shell {
+    position: relative;
+    width: min(100%, 760px);
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) 14px 28px;
+}
+
+.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 0 -14px;
+    padding: 12px 14px;
+    background: rgba(12, 28, 42, 0.64);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(22px) saturate(140%);
+}
+
+.brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.brand-mark {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 18px;
+    color: #102433;
+    background: linear-gradient(135deg, #fff, var(--lime));
+    box-shadow: inset 0 -6px 14px rgba(16, 36, 51, 0.1), 0 16px 32px rgba(0, 0, 0, 0.22);
+    font-size: 1.65rem;
+    font-weight: 1000;
+}
+
+.brand-kicker,
+.today-label,
+.credit-label,
+.update-row span {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.brand-lockup h1 {
+    margin: 0;
+    color: white;
+    font-size: clamp(1.55rem, 7vw, 2.3rem);
+    font-weight: 1000;
+    line-height: 0.95;
+}
+
+.today-panel {
+    position: relative;
+    display: grid;
+    gap: 16px;
+    margin: 18px 0 14px;
+    padding: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 30px;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(226, 252, 255, 0.82)),
+        linear-gradient(90deg, rgba(24, 167, 255, 0.12), rgba(187, 244, 81, 0.12));
+    box-shadow: var(--shadow);
+}
+
+.today-panel::after {
+    content: "";
+    position: absolute;
+    right: -40px;
+    top: -48px;
+    width: 168px;
+    height: 168px;
+    border-radius: 42px;
+    background:
+        linear-gradient(135deg, rgba(24, 167, 255, 0.28), rgba(52, 211, 153, 0.16));
+    transform: rotate(18deg);
+}
+
+.today-copy {
+    position: relative;
+    z-index: 1;
+}
+
+.today-copy .today-label {
+    color: var(--muted);
+}
+
+.today-copy h2 {
+    margin: 3px 0 8px;
+    max-width: 11ch;
+    color: var(--ink);
+    font-size: clamp(2.15rem, 11vw, 4.4rem);
+    font-weight: 1000;
+    line-height: 0.92;
+}
+
+.today-copy a {
+    display: inline-flex;
+    max-width: 100%;
+    color: #0568c5;
+    font-size: clamp(1rem, 4vw, 1.25rem);
+    font-weight: 950;
+    text-decoration: none;
+}
+
+.today-copy a span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.weekday-strip {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.weekday-strip button {
+    min-width: 0;
+    min-height: 50px;
+    border: 0;
+    border-radius: 18px;
+    color: #526575;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: inset 0 -1px 0 rgba(16, 36, 51, 0.05);
+    font-size: clamp(0.9rem, 4vw, 1rem);
+    font-weight: 1000;
+    transition: transform 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.weekday-strip button:active {
+    transform: scale(0.94);
+}
+
+.weekday-strip button.is-today,
+.weekday-strip button.is-selected {
+    color: white;
+    background: linear-gradient(135deg, var(--blue), var(--mint));
+    box-shadow: 0 16px 26px rgba(24, 167, 255, 0.28);
+}
+
+.weekday-strip button.is-selected {
+    outline: 3px solid rgba(255, 255, 255, 0.86);
+}
+
+.loading-panel {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+    padding: 16px;
+    border-radius: 26px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.loading-plate {
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+    background: conic-gradient(from 0deg, var(--blue), var(--mint), var(--sun), var(--coral), var(--blue));
+    animation: spin 1s linear infinite;
+}
+
+.loading-lines {
+    display: grid;
+    gap: 8px;
+}
+
+.loading-lines span {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(16, 36, 51, 0.1), rgba(255, 255, 255, 0.85), rgba(16, 36, 51, 0.1));
+    background-size: 220% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.loading-lines span:nth-child(2) {
+    width: 74%;
+}
+
+.loading-lines span:nth-child(3) {
+    width: 52%;
+}
+
+.loading-panel p {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--muted);
+    font-weight: 850;
+}
+
+.menu-stack {
+    display: grid;
+    gap: 12px;
+}
+
+.meal-section {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    border-radius: 28px;
+    color: white;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.2);
+    animation: rise-in 420ms ease both;
+}
+
+.meal-section:nth-child(2) {
+    animation-delay: 70ms;
+}
+
+.meal-section:nth-child(3) {
+    animation-delay: 140ms;
+}
+
+.meal-section::after {
+    content: "";
+    position: absolute;
+    inset: auto -24px -38px auto;
+    width: 154px;
+    height: 114px;
+    border-radius: 38px;
+    background: rgba(255, 255, 255, 0.16);
+    transform: rotate(-14deg);
+}
+
+.meal-section--malica {
+    --accent: #0fb67a;
+    --accent-2: #63d94d;
+}
+
+.meal-section--kosilo {
+    --accent: #ff4c6a;
+    --accent-2: #ff9a3d;
+}
+
+.meal-section--popMalica {
+    --accent: #6d5dfc;
+    --accent-2: #28b7ff;
+}
+
+.meal-head {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 18px 10px;
+}
+
+.meal-title-group {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 12px;
+}
+
+.meal-icon {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    font-size: 1.45rem;
+}
+
+.meal-title {
+    margin: 0;
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 1000;
+    line-height: 1;
+}
+
+.meal-subtitle {
+    margin: 3px 0 0;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.8rem;
+    font-weight: 850;
+}
+
+.meal-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 31px;
+    border-radius: 999px;
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 0.83rem;
+    font-weight: 1000;
+}
+
+.meal-list {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+
+.meal-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 54px;
+    padding: 12px;
+    border-radius: 20px;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.88);
+}
+
+.meal-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-size: clamp(0.98rem, 4vw, 1.08rem);
+    font-weight: 900;
+    line-height: 1.25;
+}
+
+.badge-row {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 5px;
+    max-width: 42%;
+}
+
+.allergen-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0 8px;
+    border: 1px solid rgba(132, 77, 0, 0.12);
+    border-radius: 999px;
+    color: #6b3a00;
+    background: #ffe08a;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 1000;
+    line-height: 1;
+    user-select: none;
+    transition: transform 160ms ease;
+}
+
+.allergen-badge:active,
+.allergen-badge.tooltip-open {
+    transform: scale(1.08);
+}
+
+.allergen-badge--clear {
+    color: #087047;
+    background: #ceffde;
+}
+
+.tooltip.tooltip-open:before,
+.tooltip.tooltip-open:after {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.allergen-note,
+.app-footer,
+.update-row {
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.76);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+}
+
+.allergen-note {
+    display: flex;
+    gap: 13px;
+    margin-top: 14px;
+    padding: 15px;
+    border-radius: 24px;
+}
+
+.note-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 16px;
+    color: white;
+    background: linear-gradient(135deg, var(--violet), var(--blue));
+    font-weight: 1000;
+}
+
+.allergen-note h2 {
+    margin: 0 0 3px;
+    font-size: 1rem;
+    font-weight: 1000;
+}
+
+.allergen-note p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-weight: 750;
+    line-height: 1.35;
+}
+
+.app-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 15px;
+    border-radius: 24px;
+}
+
+.credit-label,
+.update-row span {
+    color: rgba(16, 36, 51, 0.54);
+}
+
+.credit-name {
+    margin: 2px 0 0;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 1000;
+}
+
+.feedback-button {
+    min-height: 42px;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 16px;
+    padding: 0 14px;
+    color: white;
+    background: linear-gradient(135deg, #13283a, #25495f);
+    font-size: 0.85rem;
+    font-weight: 950;
+}
+
+.update-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 12px 14px;
+    border-radius: 18px;
+}
+
+.update-row strong {
+    font-weight: 1000;
+}
+
+.error-panel {
+    border-radius: 24px;
+    padding: 18px;
+    color: #8a2f25;
+    background: rgba(255, 228, 224, 0.94);
+    box-shadow: var(--shadow);
+}
+
+.error-panel h2 {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+    font-weight: 1000;
+}
+
+.error-panel p {
+    margin: 0;
+    font-weight: 800;
+}
+
+.weekend-panel {
+    overflow: hidden;
+    border-radius: 30px;
+    padding: 28px 20px;
+    text-align: center;
+    color: white;
+    background: linear-gradient(135deg, var(--violet), var(--blue));
+    box-shadow: var(--shadow);
+}
+
+.weekend-emoji {
+    margin-bottom: 12px;
+    font-size: 4.4rem;
+    animation: float 2.4s ease-in-out infinite;
+}
+
+.weekend-panel h2 {
+    margin: 0;
+    font-size: clamp(1.65rem, 7vw, 2.4rem);
+    font-weight: 1000;
+}
+
+.weekend-panel p {
+    margin: 10px auto 0;
+    max-width: 28rem;
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 850;
+}
+
+.weekend-idea {
+    display: inline-grid;
+    gap: 6px;
+    margin-top: 18px;
+    border-radius: 22px;
+    padding: 16px 18px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.weekend-idea strong {
+    font-size: 2.35rem;
+}
+
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes shimmer {
+    to {
+        background-position: -220% 0;
+    }
+}
+
+@keyframes float {
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+@media (min-width: 680px) {
+    .app-shell {
+        padding-top: 24px;
+    }
+
+    .app-header {
+        position: static;
+        margin: 0 0 16px;
+        border-radius: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: var(--shadow);
+    }
+
+    .today-panel {
+        grid-template-columns: 1fr minmax(260px, 0.82fr);
+        align-items: end;
+    }
+}
+
+@media (max-width: 430px) {
+    .app-shell {
+        padding-inline: 10px;
+    }
+
+    .app-header {
+        margin: 0 0 12px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 24px;
+        padding-inline: 12px;
+    }
+
+    .today-panel::after,
+    .meal-section::after {
+        display: none;
+    }
+
+    .today-panel {
+        border-radius: 24px;
+        padding: 18px;
+    }
+
+    .weekday-strip {
+        gap: 6px;
+    }
+
+    .weekday-strip button {
+        min-height: 46px;
+        border-radius: 16px;
+    }
+
+    .meal-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .badge-row {
+        justify-content: flex-start;
+        max-width: 100%;
+    }
+
+    .app-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+Need patch app.js for weekday functions. Need maybe style class for selected. Patch. Also update tests maybe fake DOM querySelectorAll('.weekday-strip button')? We can add no tests? Need tests for selected date fetch. Need fake DOM support querySelectorAll only class currently. It's tests not init. Add tests for build? We can export getWeekdayDate? Maybe simpler add unit test for fetchMenuInfo(date) url? It doesn't need DOM weekday. Need implement date parameter and update tests expect '/api/menu' may stay for no date. Add test date. Need fake DOM has menuDateRange link etc. Good. Need create buildMenuUrl function export? Could test fetchMenuInfo(document, fetchMock, new Date(...)). Good. Need current fetchMenuInfo signature. Implement helpers: toIsoDate, getWeekdayDate, sameDate, setSelectedDay, setDayContext, setBusy, fetchMenuInfo(date). activeDate. Need use date in setupRefreshButton and weekday buttons. For fake DOM querySelectorAll('.weekday-strip button') maybe not if not init. But init could fail in tests? They don't init. OK. But publicApi maybe include getWeekdayDate? not needed. But tests maybe add fetch date URL. Need update fake no query for buttons if not init. OK. Patch app.js. Need update HTML if "Danes" label changes. Implement updateDisplayedDate. Need if selected date is today label "Danes" else "Izbran dan". Need initial activeDate = new Date(). In closure. For local API: if date param current? Should call no param? But for selected day yes. On initial no param. For refresh use activeDate only if not today? Better refresh current activeDate; if user selected Sre, refresh Sre. For today no query to preserve tests. Define getMenuUrl(date): if date && !isSameDate(date,new Date()) return `/api/menu?test_date=${iso}` else '/api/menu'. But initial date could today. Selected other. Good. If user selects today, no param. But if today is Thursday and user select Thursday, no param, okay.
