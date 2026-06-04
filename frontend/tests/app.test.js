@@ -221,6 +221,53 @@ async function testFoodNamesRenderAsText() {
   );
 }
 
+async function testAllergenBadgesDoNotUseDaisyTooltipClass() {
+  const documentRef = setupDocument();
+
+  app.displayMenu(
+    {
+      success: true,
+      meals: {
+        malica: [{ name: 'kruh', allergens: ['G'], raw: 'kruh – G' }],
+        kosilo: [],
+        popMalica: [],
+      },
+    },
+    documentRef
+  );
+
+  const badges = documentRef.querySelectorAll('.allergen-badge');
+  assert.equal(badges.length, 1);
+  assert.equal(badges[0].classList.contains('tooltip'), false);
+}
+
+async function testTooltipPositionClampsInsideViewport() {
+  const position = app.calculateTooltipPosition(
+    { left: 1180, right: 1210, top: 420, bottom: 450, width: 30, height: 30 },
+    { width: 180, height: 34 },
+    1240,
+    800
+  );
+
+  assert.equal(position.placement, 'top');
+  assert.ok(position.left >= 10);
+  assert.ok(position.left + 180 <= 1230);
+  assert.equal(position.left, 1050);
+}
+
+async function testTooltipPositionMovesBelowNearTopEdge() {
+  const position = app.calculateTooltipPosition(
+    { left: 40, right: 70, top: 8, bottom: 38, width: 30, height: 30 },
+    { width: 130, height: 34 },
+    390,
+    844
+  );
+
+  assert.equal(position.placement, 'bottom');
+  assert.ok(position.top >= 46);
+  assert.ok(position.left >= 10);
+}
+
 async function testErrorMessageRendersSafely() {
   const documentRef = setupDocument();
   const menuContent = documentRef.getElementById('menuContent');
@@ -304,6 +351,9 @@ async function run() {
   await testLegacyMenuNormalization();
   await testStructuredMenuNormalization();
   await testFoodNamesRenderAsText();
+  await testAllergenBadgesDoNotUseDaisyTooltipClass();
+  await testTooltipPositionClampsInsideViewport();
+  await testTooltipPositionMovesBelowNearTopEdge();
   await testErrorMessageRendersSafely();
   await testFetchFlow();
   await testFetchFlowForSelectedDate();

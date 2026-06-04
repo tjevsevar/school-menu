@@ -390,6 +390,7 @@
 }
 
 .allergen-badge {
+    appearance: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -401,6 +402,7 @@
     color: #6b3a00;
     background: #ffe08a;
     cursor: pointer;
+    font-family: inherit;
     font-size: 0.72rem;
     font-weight: 1000;
     line-height: 1;
@@ -413,15 +415,40 @@
     transform: scale(1.08);
 }
 
+.allergen-badge:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.95);
+    outline-offset: 2px;
+}
+
 .allergen-badge--clear {
     color: #087047;
     background: #ceffde;
 }
 
-.tooltip.tooltip-open:before,
-.tooltip.tooltip-open:after {
-    opacity: 1 !important;
-    visibility: visible !important;
+.allergen-tooltip {
+    position: fixed;
+    z-index: 1000;
+    max-width: min(260px, calc(100vw - 20px));
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    color: white;
+    background: rgba(16, 36, 51, 0.96);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.26);
+    font-size: 0.78rem;
+    font-weight: 950;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.allergen-tooltip.is-visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .allergen-note,

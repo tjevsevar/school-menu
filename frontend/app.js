@@ -195,10 +195,13 @@
     const badge = createElement(
       documentRef,
       'div',
-      'tooltip allergen-badge allergen-badge--clear',
+      'allergen-badge allergen-badge--clear',
       '✓'
     );
     badge.dataset.tip = 'Brez alergenov';
+    badge.tabIndex = 0;
+    badge.setAttribute?.('role', 'button');
+    badge.setAttribute?.('aria-label', 'Brez alergenov');
     return badge;
   }
 
@@ -208,10 +211,16 @@
       const badge = createElement(
         documentRef,
         'div',
-        'tooltip allergen-badge',
+        'allergen-badge',
         allergen
       );
       badge.dataset.tip = allergenTranslations[allergen] || allergen;
+      badge.tabIndex = 0;
+      badge.setAttribute?.('role', 'button');
+      badge.setAttribute?.(
+        'aria-label',
+        allergenTranslations[allergen] || allergen
+      );
       wrapper.appendChild(badge);
     });
     return wrapper;
@@ -397,30 +406,146 @@
     }
   }
 
-  function setupAllergenTooltips(documentRef = document) {
-    const closeTooltips = (exceptBadge) => {
-      documentRef.querySelectorAll('.allergen-badge').forEach((badge) => {
-        if (badge !== exceptBadge) {
-          badge.classList.remove('tooltip-open');
-        }
-      });
+  function calculateTooltipPosition(anchorRect, tooltipRect, viewportWidth, viewportHeight) {
+    const margin = 10;
+    const gap = 8;
+    const maxLeft = Math.max(margin, viewportWidth - tooltipRect.width - margin);
+    const centeredLeft =
+      anchorRect.left + (anchorRect.width - tooltipRect.width) / 2;
+    const left = Math.min(Math.max(centeredLeft, margin), maxLeft);
+    let top = anchorRect.top - tooltipRect.height - gap;
+    let placement = 'top';
+
+    if (top < margin) {
+      top = anchorRect.bottom + gap;
+      placement = 'bottom';
+    }
+
+    const maxTop = Math.max(margin, viewportHeight - tooltipRect.height - margin);
+    top = Math.min(Math.max(top, margin), maxTop);
+
+    return { left, top, placement };
+  }
+
+  function setupAllergenTooltips(documentRef = document, windowRef = globalScope) {
+    if (!documentRef.body) {
+      return;
+    }
+
+    const tooltip = createElement(documentRef, 'div', 'allergen-tooltip');
+    tooltip.hidden = true;
+    tooltip.setAttribute('role', 'tooltip');
+    documentRef.body.appendChild(tooltip);
+
+    let activeBadge = null;
+    let closeTimer = null;
+
+    const hideTooltip = () => {
+      if (closeTimer) {
+        windowRef.clearTimeout(closeTimer);
+        closeTimer = null;
+      }
+      if (activeBadge) {
+        activeBadge.classList.remove('tooltip-open');
+      }
+      activeBadge = null;
+      tooltip.classList.remove('is-visible');
+      tooltip.hidden = true;
     };
 
-    const toggleTooltip = (event) => {
-      const badge = event.target.closest('.allergen-badge');
+    const showTooltip = (badge) => {
+      const tip = badge?.dataset?.tip;
+      if (!tip || !badge.getBoundingClientRect) {
+        hideTooltip();
+        return;
+      }
+
+      if (closeTimer) {
+        windowRef.clearTimeout(closeTimer);
+      }
+
+      if (activeBadge && activeBadge !== badge) {
+        activeBadge.classList.remove('tooltip-open');
+      }
+
+      activeBadge = badge;
+      activeBadge.classList.add('tooltip-open');
+      tooltip.textContent = tip;
+      tooltip.hidden = false;
+      tooltip.classList.add('is-visible');
+      tooltip.style.left = '0px';
+      tooltip.style.top = '0px';
+
+      const position = calculateTooltipPosition(
+        badge.getBoundingClientRect(),
+        tooltip.getBoundingClientRect(),
+        windowRef.innerWidth || documentRef.documentElement.clientWidth,
+        windowRef.innerHeight || documentRef.documentElement.clientHeight
+      );
+      tooltip.dataset.placement = position.placement;
+      tooltip.style.left = `${Math.round(position.left)}px`;
+      tooltip.style.top = `${Math.round(position.top)}px`;
+    };
+
+    const badgeFromEvent = (event) =>
+      event.target.closest ? event.target.closest('.allergen-badge') : null;
+
+    documentRef.addEventListener('pointerover', (event) => {
+      const badge = badgeFromEvent(event);
+      if (badge) {
+        showTooltip(badge);
+      }
+    });
+
+    documentRef.addEventListener('pointerout', (event) => {
+      const badge = badgeFromEvent(event);
+      if (!badge || badge !== activeBadge) {
+        return;
+      }
+      if (event.relatedTarget && badge.contains?.(event.relatedTarget)) {
+        return;
+      }
+      hideTooltip();
+    });
+
+    documentRef.addEventListener('focusin', (event) => {
+      const badge = badgeFromEvent(event);
+      if (badge) {
+        showTooltip(badge);
+      }
+    });
+
+    documentRef.addEventListener('focusout', (event) => {
+      const badge = badgeFromEvent(event);
+      if (badge && badge === activeBadge) {
+        hideTooltip();
+      }
+    });
+
+    documentRef.addEventListener('click', (event) => {
+      const badge = badgeFromEvent(event);
       if (!badge) {
-        closeTooltips(null);
+        hideTooltip();
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-      closeTooltips(badge);
-      badge.classList.toggle('tooltip-open');
-      setTimeout(() => badge.classList.remove('tooltip-open'), 3000);
-    };
 
-    documentRef.addEventListener('touchstart', toggleTooltip);
-    documentRef.addEventListener('click', toggleTooltip);
+      showTooltip(badge);
+      closeTimer = windowRef.setTimeout(hideTooltip, 3000);
+    });
+
+    documentRef.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        hideTooltip();
+      }
+    });
+
+    windowRef.addEventListener?.('resize', () => {
+      if (activeBadge && !tooltip.hidden) {
+        showTooltip(activeBadge);
+      }
+    });
   }
 
   function registerServiceWorker(navigatorRef = globalScope.navigator) {
@@ -485,6 +610,7 @@
     displayWeekendMessage,
     fetchMenuInfo,
     formatCurrentDay,
+    calculateTooltipPosition,
     init,
     isWeekend,
     normalizeMenuData,
