@@ -1,9 +1,11 @@
 // Simplified Service Worker for PWA functionality
-const CACHE_NAME = 'school-lunch-v9';
+const CACHE_NAME = 'school-lunch-v9-calm-os';
 const urlsToCache = [
   '/app.js',
   '/manifest.json',
-  '/school-logo.png',
+  '/app-icon.png',
+  '/app-icon-192.png',
+  '/app-icon-512.png',
   '/styles.css'
 ];
 

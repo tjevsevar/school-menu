@@ -114,7 +114,7 @@ The web app has:
 - `styles.css` - Small custom styles
 - `manifest.json` - PWA configuration
 - `sw.js` - Service worker for offline functionality
-- `school-logo.png` - App icon
+- `app-icon.png` - App icon
 - `backend/app.py` - Optional Flask server
 
 ### **Features:**

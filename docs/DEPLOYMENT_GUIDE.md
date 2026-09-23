@@ -103,7 +103,7 @@ SchoolLunchChecker/
 │   ├── styles.css           # Custom styles
 │   ├── manifest.json        # PWA config
 │   ├── sw.js                # Service worker
-│   └── school-logo.png      # App icon
+│   └── app-icon.png      # App icon
 ├── netlify/
 │   └── functions/
 │       └── menu.js          # API endpoint
