@@ -566,12 +566,6 @@
     50% { transform: translateY(-6px); }
 }
 
-@media (min-width: 680px) {
-    .app-shell {
-        padding-top: 28px;
-    }
-}
-
 @media (max-width: 430px) {
     .app-shell {
         padding-inline: 14px;
@@ -591,5 +585,231 @@
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
         transition-duration: 0.001ms !important;
+    }
+}
+
+/* --- Desktop / tablet responsive layout --- */
+@media (min-width: 640px) {
+    .app-shell {
+        width: min(100%, 640px);
+        padding: 24px 24px 40px;
+    }
+
+    .brand-lockup h1 {
+        font-size: 2.15rem;
+    }
+
+    .today-copy h2 {
+        font-size: 1.1rem;
+    }
+
+    .weekday-strip {
+        gap: 8px;
+    }
+
+    .weekday-strip button {
+        min-height: 44px;
+        font-size: 0.9rem;
+    }
+
+    .menu-stack {
+        gap: 14px;
+    }
+
+    .meal-head {
+        padding: 16px 18px 8px;
+    }
+
+    .meal-list {
+        padding: 0 18px 12px;
+    }
+
+    .meal-name {
+        font-size: 1.05rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .app-shell {
+        width: min(100%, 820px);
+        padding: 32px 28px 48px;
+    }
+
+    .brand-kicker {
+        font-size: 0.8rem;
+    }
+
+    .brand-lockup h1 {
+        font-size: 2.35rem;
+    }
+
+    .today-panel {
+        margin: 16px 0 12px;
+        gap: 14px;
+    }
+
+    .today-copy .today-label {
+        font-size: 0.9rem;
+    }
+
+    .today-copy h2 {
+        font-size: 1.15rem;
+    }
+
+    .today-copy a {
+        font-size: 0.9rem;
+    }
+
+    .weekday-strip button {
+        min-height: 46px;
+        font-size: 0.95rem;
+    }
+
+    .menu-stack {
+        gap: 16px;
+    }
+
+    .meal-title {
+        font-size: 0.75rem;
+    }
+
+    .meal-name {
+        font-size: 1.08rem;
+    }
+
+    .allergen-note,
+    .app-footer,
+    .update-row {
+        margin-top: 18px;
+        padding: 16px 18px;
+    }
+
+    .allergen-note {
+        margin-top: 20px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .app-shell {
+        width: min(100%, 1080px);
+        padding: 36px 32px 56px;
+    }
+
+    .app-header {
+        padding: 4px 0 8px;
+    }
+
+    .brand-lockup h1 {
+        font-size: 2.5rem;
+    }
+
+    .today-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+        align-items: end;
+        gap: 20px 28px;
+        margin: 18px 0 16px;
+    }
+
+    .weekday-strip {
+        gap: 10px;
+    }
+
+    .weekday-strip button {
+        min-height: 48px;
+        font-size: 1rem;
+    }
+
+    .menu-stack {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        align-items: stretch;
+    }
+
+    .menu-stack > .weekend-panel,
+    .menu-stack > .error-panel {
+        grid-column: 1 / -1;
+    }
+
+    .meal-section {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+    }
+
+    .meal-list {
+        flex: 1;
+        padding: 0 18px 14px;
+    }
+
+    .meal-head {
+        padding: 16px 18px 8px;
+    }
+
+    .meal-title {
+        font-size: 0.78rem;
+        letter-spacing: 0.09em;
+    }
+
+    .meal-name {
+        font-size: 1.05rem;
+    }
+
+    .meal-row {
+        padding: 12px 0;
+    }
+
+    .allergen-note {
+        margin-top: 22px;
+        padding: 18px 20px;
+    }
+
+    .allergen-note h2 {
+        font-size: 1rem;
+    }
+
+    .allergen-note p {
+        font-size: 0.9rem;
+    }
+
+    .app-footer {
+        margin-top: 16px;
+        padding: 16px 20px;
+    }
+
+    .credit-name {
+        font-size: 1rem;
+    }
+
+    .feedback-button {
+        min-height: 42px;
+        padding: 0 18px;
+        font-size: 0.85rem;
+    }
+
+    .update-row {
+        margin-top: 12px;
+        padding: 14px 18px;
+        font-size: 0.85rem;
+    }
+
+    .weekend-panel {
+        padding: 40px 32px;
+    }
+
+    .weekend-panel h2 {
+        font-size: 2rem;
+    }
+}
+
+@media (min-width: 1280px) {
+    .app-shell {
+        width: min(100%, 1160px);
+        padding: 40px 36px 64px;
+    }
+
+    .menu-stack {
+        gap: 20px;
     }
 }
