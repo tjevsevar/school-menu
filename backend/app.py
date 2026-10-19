@@ -4,6 +4,8 @@ Simple Flask server for the School Lunch Menu Web App
 """
 
 from flask import Flask, send_from_directory, jsonify, request
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import os
 
 # Import from same directory
@@ -37,10 +39,17 @@ def get_menu():
 
         checker = LunchMenuChecker()
 
+        if request.args.get("week") == "next":
+            today = datetime.now(ZoneInfo("Europe/Ljubljana")).replace(
+                tzinfo=None, hour=0, minute=0, second=0, microsecond=0
+            )
+            if test_date_str:
+                today = datetime.strptime(test_date_str, "%Y-%m-%d")
+            next_monday = today + timedelta(days=7 - today.weekday())
+            return jsonify(checker.get_week_menu(next_monday))
+
         # Override the date if test_date is provided
         if test_date_str:
-            from datetime import datetime
-
             test_date = datetime.strptime(test_date_str, "%Y-%m-%d")
             # Temporarily override datetime.now() in the checker
             menu_result = checker.check_lunch_menu_for_date(test_date)

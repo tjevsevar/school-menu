@@ -42,6 +42,7 @@
     'mailto:andraz.jevsevar@ostrbovlje.si?subject=Povratne informacije - Šolski jedilnik&body=Pozdravljen,%0A%0APišem vam glede aplikacije za šolski jedilnik...%0A%0ALep pozdrav';
 
   let activeDate = new Date();
+  let latestRequestId = 0;
 
   function createElement(documentRef, tagName, className, text) {
     const element = documentRef.createElement(tagName);
@@ -226,14 +227,14 @@
     return wrapper;
   }
 
-  function createMealSection(documentRef, key, items) {
+  function createMealSection(documentRef, key, items, headingTag = 'h2') {
     const config = mealConfig[key];
     const section = createElement(documentRef, 'section', config.sectionClass);
     const head = createElement(documentRef, 'div', 'meal-head');
     const titleGroup = createElement(documentRef, 'div', 'meal-title-group');
     const icon = createElement(documentRef, 'div', 'meal-icon', config.icon);
     const copy = createElement(documentRef, 'div');
-    const title = createElement(documentRef, 'h2', 'card-title meal-title', config.title);
+    const title = createElement(documentRef, headingTag, 'card-title meal-title', config.title);
     const subtitle = createElement(documentRef, 'p', 'meal-subtitle', config.subtitle);
     const count = createElement(documentRef, 'span', 'meal-count', String(items.length));
     const list = createElement(documentRef, 'div', 'meal-list');
@@ -345,6 +346,78 @@
     }
   }
 
+  function displayWeekMenu(menuData, documentRef = document) {
+    const sections = menuData.days.map((day) => {
+      const section = createElement(documentRef, 'section', 'week-day');
+      const heading = createElement(
+        documentRef, 'h2', 'week-day-title',
+        formatCurrentDay(new Date(`${day.date}T12:00:00`))
+      );
+      heading.id = `week-day-${day.date}`;
+      section.setAttribute('aria-labelledby', heading.id);
+      section.appendChild(heading);
+      if (!day.success) {
+        section.appendChild(createElement(
+          documentRef, 'p', 'day-menu-message', 'Jedilnik za ta dan ni objavljen.'
+        ));
+      } else {
+        const meals = createElement(documentRef, 'div', 'day-meals');
+        const normalized = normalizeMenuData(day);
+        Object.keys(mealConfig).forEach((key) => {
+          meals.appendChild(createMealSection(documentRef, key, normalized.meals[key], 'h3'));
+        });
+        section.appendChild(meals);
+      }
+      return section;
+    });
+    replaceChildren(documentRef.getElementById('menuContent'), sections);
+    documentRef.getElementById('allergenInfo').classList.remove('hidden');
+  }
+
+  function updateWeekNavigation(documentRef) {
+    documentRef.getElementById('weekNavigation').hidden =
+      documentRef.getElementById('nextWeekBtn').hidden &&
+      documentRef.getElementById('todayMenuBtn').hidden;
+  }
+
+  function setNextWeekAvailable(documentRef, available) {
+    documentRef.getElementById('nextWeekBtn').hidden = !available;
+    updateWeekNavigation(documentRef);
+  }
+
+  function hasWeekMenu(menuData) {
+    return Boolean(menuData.success && menuData.days?.some((day) => day.success));
+  }
+
+  async function checkNextWeekAvailability(documentRef = document, fetchImpl = fetch) {
+    setNextWeekAvailable(documentRef, false);
+    try {
+      const response = await fetchImpl('/api/menu?week=next', { cache: 'no-store' });
+      if (!response.ok) return false;
+      const available = hasWeekMenu(await response.json());
+      setNextWeekAvailable(documentRef, available);
+      return available;
+    } catch {
+      return false;
+    }
+  }
+
+  function setWeekView(documentRef, weekly, menuData = null) {
+    documentRef.getElementById('weekdayStrip').hidden = weekly;
+    documentRef.getElementById('todayMenuBtn').hidden = !weekly;
+    updateWeekNavigation(documentRef);
+    const button = documentRef.getElementById('nextWeekBtn');
+    button.setAttribute('aria-pressed', String(weekly));
+    if (weekly) {
+      button.classList.add('is-active');
+      documentRef.getElementById('dayContext').textContent = 'Naslednji teden';
+      documentRef.getElementById('currentDay').textContent =
+        menuData?.date_range || 'Ponedeljek–petek';
+    } else {
+      button.classList.remove('is-active');
+    }
+  }
+
   function updateTimestamp(documentRef = document) {
     documentRef.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('sl-SI', {
       hour: '2-digit',
@@ -375,34 +448,71 @@
     return `/api/menu?test_date=${encodeURIComponent(toIsoDate(date))}`;
   }
 
-  async function fetchMenuInfo(documentRef = document, fetchImpl = fetch, date = activeDate) {
+  async function fetchMenuInfo(
+    documentRef = document, fetchImpl = fetch, date = activeDate, weekly = false
+  ) {
+    const requestId = ++latestRequestId;
+    const loading = documentRef.getElementById('loading');
+    const menuContent = documentRef.getElementById('menuContent');
+    setWeekView(documentRef, weekly);
+    if (!weekly) updateDisplayedDate(documentRef, date);
+    loading.classList.remove('hidden');
+    menuContent.setAttribute('aria-busy', 'true');
+    replaceChildren(menuContent, []);
+    documentRef.getElementById('allergenInfo').classList.add('hidden');
+    documentRef.getElementById('menuDateRange').textContent = 'Nalagam jedilnik...';
+    documentRef.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
     try {
-      const response = await fetchImpl(getMenuUrl(date), { cache: 'no-store' });
+      if (!weekly && isWeekend(date)) {
+        displayWeekendMessage(documentRef, date);
+        return { success: false, reason: 'weekend' };
+      }
+      const response = await fetchImpl(
+        weekly ? '/api/menu?week=next' : getMenuUrl(date), { cache: 'no-store' }
+      );
       if (!response.ok) {
         throw new Error(`API status ${response.status}`);
       }
 
       const menuData = await response.json();
-      if (menuData.success && (menuData.meals || menuData.menu)) {
-        updateDisplayedDate(documentRef, date);
+      if (requestId !== latestRequestId) return menuData;
+      if (weekly) {
+        setNextWeekAvailable(documentRef, hasWeekMenu(menuData));
+        setWeekView(documentRef, true, menuData);
+      }
+      const hasMenu = weekly ? hasWeekMenu(menuData) : (menuData.meals || menuData.menu);
+      if (menuData.success && hasMenu) {
         updateMenuMetadata(documentRef, menuData);
-        displayMenu(menuData, documentRef);
+        if (weekly) displayWeekMenu(menuData, documentRef);
+        else displayMenu(menuData, documentRef);
         return menuData;
       }
 
       documentRef.getElementById('menuDateRange').textContent = 'Jedilnik ni na voljo';
       documentRef.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
       replaceChildren(documentRef.getElementById('menuContent'), [
-        createErrorMessage(documentRef, 'Jedilnik trenutno ni na voljo.'),
+        createErrorMessage(documentRef,
+          weekly && menuData.reason === 'not-published'
+            ? 'Jedilnik za naslednji teden še ni objavljen. Poskusi znova pozneje.'
+            : 'Jedilnik trenutno ni na voljo.'
+        ),
       ]);
       return menuData;
     } catch (error) {
+      if (requestId !== latestRequestId) return { success: false, error: error.message };
+      if (weekly) setNextWeekAvailable(documentRef, false);
       documentRef.getElementById('menuDateRange').textContent = 'Jedilnik (kliknite za ogled)';
       documentRef.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
       replaceChildren(documentRef.getElementById('menuContent'), [
         createErrorMessage(documentRef, 'Napaka pri nalaganju jedilnika.'),
       ]);
       return { success: false, error: error.message };
+    } finally {
+      if (requestId === latestRequestId) {
+        loading.classList.add('hidden');
+        menuContent.setAttribute('aria-busy', 'false');
+        updateTimestamp(documentRef);
+      }
     }
   }
 
@@ -573,18 +683,18 @@
           return;
         }
         const targetDate = getWeekdayDate(new Date(), weekday);
-        const loading = documentRef.getElementById('loading');
-        const menuContent = documentRef.getElementById('menuContent');
-
-        updateDisplayedDate(documentRef, targetDate);
-        loading.classList.remove('hidden');
-        menuContent.classList.add('opacity-30');
         await fetchMenuInfo(documentRef, fetch, targetDate);
-        loading.classList.add('hidden');
-        menuContent.classList.remove('opacity-30');
-        updateTimestamp(documentRef);
       });
     });
+  }
+
+  function setupWeekButtons(documentRef = document, fetchImpl = fetch) {
+    documentRef.getElementById('nextWeekBtn').addEventListener('click', () =>
+      fetchMenuInfo(documentRef, fetchImpl, new Date(), true)
+    );
+    documentRef.getElementById('todayMenuBtn').addEventListener('click', () =>
+      fetchMenuInfo(documentRef, fetchImpl, new Date())
+    );
   }
 
   function init(documentRef = document) {
@@ -594,20 +704,17 @@
     updateDisplayedDate(documentRef, now);
     setupFeedbackButton(documentRef);
     setupWeekdayButtons(documentRef);
+    setupWeekButtons(documentRef);
     setupAllergenTooltips(documentRef);
 
-    if (isWeekend(now)) {
-      displayWeekendMessage(documentRef, now);
-    } else {
-      fetchMenuInfo(documentRef);
-    }
-
-    updateTimestamp(documentRef);
+    fetchMenuInfo(documentRef, fetch, now);
+    checkNextWeekAvailability(documentRef);
   }
 
   const publicApi = {
     displayMenu,
     displayWeekendMessage,
+    displayWeekMenu,
     fetchMenuInfo,
     formatCurrentDay,
     calculateTooltipPosition,
@@ -617,6 +724,8 @@
     parseFoodItem,
     toIsoDate,
     getWeekdayDate,
+    setupWeekButtons,
+    checkNextWeekAvailability,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

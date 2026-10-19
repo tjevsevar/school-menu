@@ -157,6 +157,73 @@
     outline: none;
 }
 
+.week-navigation {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.week-button {
+    min-height: 44px;
+    max-width: 100%;
+    padding: 10px 16px;
+    border: 1px solid rgba(25, 145, 238, 0.25);
+    border-radius: 12px;
+    color: var(--blue-deep);
+    background: var(--surface);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.week-button:hover {
+    background: var(--blue-soft);
+}
+
+.week-button.is-active {
+    color: #fff;
+    background: var(--blue-deep);
+    border-color: var(--blue-deep);
+}
+
+.week-button--back {
+    background: transparent;
+    border-color: transparent;
+}
+
+.week-button:focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: 3px;
+}
+
+.week-day {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+
+.week-day-title {
+    margin: 12px 0;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.day-meals {
+    display: grid;
+    gap: 12px;
+}
+
+.day-menu-message {
+    margin: 0;
+    padding: 16px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--muted);
+}
+
 .loading-panel {
     display: grid;
     grid-template-columns: 40px 1fr;
@@ -568,7 +635,8 @@
     font-size: 2rem;
 }
 
-.hidden {
+.hidden,
+[hidden] {
     display: none !important;
 }
 
@@ -759,6 +827,11 @@
     .menu-stack > .weekend-panel,
     .menu-stack > .error-panel {
         grid-column: 1 / -1;
+    }
+
+    .day-meals {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
     }
 
     .meal-section {

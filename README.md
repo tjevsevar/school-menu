@@ -7,6 +7,7 @@ A Progressive Web App to check your son's daily school lunch menu from Osnovna �
 - ✅ **Progressive Web App** - Install on your phone for native app-like experience
 - 🔍 **Automatic menu detection** - Finds the current week's menu automatically
 - 📅 **Smart date matching** - Shows today's specific lunch from the weekly menu
+- 🗓️ **Next-week preview** - “Jedilnik za naslednji teden” appears only when next week's menu is available and shows Monday through Friday, including meals and allergens
 - 🏷️ **Allergen badges** - Interactive badges showing allergen information with tooltips
 - 📱 **Mobile-first design** - Beautiful iOS-like interface optimized for phones
 - 🔄 **Auto-refresh** - Menu loads automatically when you open the app

@@ -6,7 +6,7 @@ A simple automation to check today's lunch menu from Osnovna šola Trbovlje
 
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import sys
 import threading
@@ -33,7 +33,7 @@ class LunchMenuChecker:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": USER_AGENT})
 
-    def get_current_week_menu_url_for_date(self, target_date=None):
+    def get_current_week_menu_url_for_date(self, target_date=None, week_end=None):
         """Fetch the menu URL for a specific date (or current week if None)"""
         if target_date is None:
             return self.get_current_week_menu_url()
@@ -53,7 +53,8 @@ class LunchMenuChecker:
                 if "Jedilnik" in link_text or "jedilnik" in link_text.lower():
                     # Extract date range from the link text
                     date_match = re.search(
-                        r"(\d{1,2})\.(\d{1,2})\.–(\d{1,2})\.(\d{1,2})\.\s*(\d{4})",
+                        r"(\d{1,2})\.\s*(\d{1,2})\.\s*[–-]\s*"
+                        r"(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})",
                         link_text,
                     )
                     if date_match:
@@ -63,11 +64,15 @@ class LunchMenuChecker:
 
                         # Create date objects for the week range
                         try:
-                            start_date = datetime(year, start_month, start_day)
+                            start_year = year - (start_month > end_month)
+                            start_date = datetime(start_year, start_month, start_day)
                             end_date = datetime(year, end_month, end_day)
 
                             # Check if target_date falls within this week
-                            if start_date <= target_date <= end_date:
+                            if (
+                                start_date <= (week_end or target_date)
+                                and end_date >= target_date
+                            ):
                                 href = link.get("href")
                                 if href.startswith("/"):
                                     href = self.base_url + href
@@ -93,11 +98,81 @@ class LunchMenuChecker:
             return None
 
         except requests.RequestException as e:
+            if week_end is not None:
+                raise
             print(f"Error fetching menu page: {e}")
             return None
         except Exception as e:
+            if week_end is not None:
+                raise
             print(f"Error parsing menu page: {e}")
             return None
+
+    def get_week_menu(self, start_date):
+        """Read one published menu for the requested Monday through Friday."""
+        end_date = start_date + timedelta(days=4)
+        metadata = {
+            "week_start": start_date.strftime("%Y-%m-%d"),
+            "week_end": end_date.strftime("%Y-%m-%d"),
+            "date_range": (
+                f"{start_date.strftime('%d.%m.')}–{end_date.strftime('%d.%m.%Y')}"
+            ),
+        }
+        menu_info = self.get_current_week_menu_url_for_date(start_date, end_date)
+        if not menu_info:
+            return {
+                "success": False,
+                "reason": "not-published",
+                "error": "Jedilnik za naslednji teden še ni objavljen.",
+                **metadata,
+            }
+
+        response = self.session.get(menu_info["url"], timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, "html.parser")
+        table = soup.find("table")
+        if table is None:
+            return {"success": False, "error": "Ne morem najti tabele jedilnika"}
+
+        day_names = ["ponedeljek", "torek", "sreda", "četrtek", "petek"]
+        day_codes = ["pon", "tor", "sre", "čet", "pet"]
+        days = []
+        for offset, (name, code) in enumerate(zip(day_names, day_codes)):
+            date = start_date + timedelta(days=offset)
+            day_data = {"date": date.strftime("%Y-%m-%d"), "success": False}
+            row = next(
+                (
+                    row
+                    for row in table.find_all("tr")
+                    if row.find(["td", "th"])
+                    and row.find(["td", "th"]).get_text().strip().lower() == code
+                ),
+                None,
+            )
+            if row is not None and len(row.find_all(["td", "th"])) >= 4:
+                day_data.update(
+                    success=True,
+                    menu=self._extract_menu_from_soup(
+                        soup,
+                        menu_info,
+                        name,
+                        code,
+                        date.strftime("%d.%m.%Y"),
+                        date.strftime("%d.%m"),
+                        date,
+                    ),
+                )
+            else:
+                day_data["error"] = "Jedilnik za ta dan ni objavljen."
+            days.append(day_data)
+
+        return {
+            "success": True,
+            **metadata,
+            "menu_title": menu_info["text"],
+            "source_url": menu_info["url"],
+            "days": days,
+        }
 
     def get_current_week_menu_url(self):
         """Fetch the current week's menu URL from the main prehrana page
@@ -790,8 +865,7 @@ class LunchMenuGUI:
 
         # Initial message
         initial_message = (
-            "👋 Dobrodošli v aplikaciji za preverjanje šolskega jedilnika!\n"
-            """
+            "👋 Dobrodošli v aplikaciji za preverjanje šolskega jedilnika!\n" """
 
 🔹 Kliknite na gumb "Preveri današnji jedilnik" za prikaz današnjega kosila
 🔹 Aplikacija avtomatsko poišče najnovejši jedilnik na spletni strani šole

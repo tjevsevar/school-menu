@@ -58,8 +58,12 @@ jobs:
     
     - name: Install JavaScript dependencies
       run: |
+        npm ci
         cd frontend
         npm ci
+
+    - name: Test menu API
+      run: npm run test:menu
     
     - name: Run ESLint
       run: |

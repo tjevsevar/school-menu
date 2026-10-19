@@ -31,8 +31,8 @@
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="styles.css?v=20260926-weekend">
-    <script src="app.js?v=20260923-calm-os" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20261019-next-week">
+    <script src="app.js?v=20261019-next-week-availability" defer></script>
 </head>
 
 <body class="app-body min-h-screen overflow-x-hidden">
@@ -55,12 +55,20 @@
                     <span id="menuDateRange">Nalagam jedilnik...</span>
                 </a>
             </div>
-            <div class="weekday-strip" aria-label="Šolski teden">
+            <div class="weekday-strip" id="weekdayStrip" aria-label="Šolski teden">
                 <button type="button" data-weekday="1">Pon</button>
                 <button type="button" data-weekday="2">Tor</button>
                 <button type="button" data-weekday="3">Sre</button>
                 <button type="button" data-weekday="4">Čet</button>
                 <button type="button" data-weekday="5">Pet</button>
+            </div>
+            <div class="week-navigation" id="weekNavigation" aria-label="Izbira jedilnika" hidden>
+                <button type="button" class="week-button" id="nextWeekBtn" aria-pressed="false" aria-controls="menuContent" hidden>
+                    Jedilnik za naslednji teden
+                </button>
+                <button type="button" class="week-button week-button--back" id="todayMenuBtn" hidden>
+                    Nazaj na današnji jedilnik
+                </button>
             </div>
         </section>
 

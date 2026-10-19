@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const { _internals } = require('../functions/menu');
+const { _internals, handler } = require('../functions/menu');
 
 function dateUtc(year, month, day) {
   return new Date(Date.UTC(year, month - 1, day));
@@ -127,11 +127,102 @@ banana</td>
   assert.ok(menuData.menu.includes('pet lunch–L, GS'));
 }
 
-runSelectionTests();
-runLinkParsingTests();
-runFoodParsingTests();
-runDateParsingTests();
-runMenuPageParsingTests();
+function runNextWeekDateTests() {
+  const cases = [
+    ['2026-01-09', '2026-01-12'], // Friday
+    ['2026-01-10', '2026-01-12'], // Saturday
+    ['2026-01-11', '2026-01-12'], // Sunday
+    ['2026-01-12', '2026-01-19'], // Monday always means the following week
+    ['2026-12-31', '2027-01-04'],
+    ['2026-03-27', '2026-03-30'], // Daylight saving begins
+    ['2026-10-23', '2026-10-26'], // Daylight saving ends
+  ];
+  for (const [date, expected] of cases) {
+    const days = _internals.getNextWeekDates(new Date(`${date}T12:00:00`));
+    assert.equal(_internals.formatDateParts(days[0]).isoDate, expected);
+    assert.equal(days[4].getDay(), 5);
+  }
+  const days = _internals.getNextWeekDates(new Date(2026, 0, 9, 12));
+  assert.equal(_internals.selectWeekMenu([buildMenus()[0], buildMenus()[2]], days), null);
+  assert.equal(_internals.selectWeekMenu(buildMenus(), days).text, 'Jedilnik 12.1.–16.1. 2026');
+}
 
-console.log('All menu parser tests passed.');
-setImmediate(() => process.exit(0));
+function weeklyHtml() {
+  return `<table>${['PON', 'TOR', 'SRE', 'ČET', 'PET'].map((day) =>
+    `<tr><th>${day}</th><td>kruh – G</td><td>kosilo ${day}</td><td>sadje</td></tr>`
+  ).join('')}</table>`;
+}
+
+async function runWeeklyHandlerTests() {
+  const originalFetch = global.fetch;
+  const list = `
+    <a href="/current">Jedilnik 5.1.–9.1. 2026</a>
+    <a href="/next">Jedilnik 12.1.–16.1. 2026</a>
+    <a href="/later">Jedilnik 19.1.–23.1. 2026</a>`;
+  const calls = [];
+  try {
+    global.fetch = async (url) => {
+      calls.push(url);
+      return { ok: true, text: async () => url.endsWith('/prehrana/') ? list : weeklyHtml() };
+    };
+    for (const date of ['2026-01-09', '2026-01-10', '2026-01-11']) {
+      calls.length = 0;
+      const response = await handler({ queryStringParameters: { week: 'next', test_date: date } });
+      const body = JSON.parse(response.body);
+      assert.equal(body.success, true);
+      assert.equal(body.week_start, '2026-01-12');
+      assert.equal(body.week_end, '2026-01-16');
+      assert.equal(body.days.length, 5);
+      assert.ok(body.days.every((day) => day.success));
+      assert.equal(body.days[4].meals.kosilo[0].name, 'kosilo PET');
+      assert.deepEqual(body.days[0].meals.malica[0].allergens, ['G']);
+      assert.deepEqual(calls, ['https://ostrbovlje.si/prehrana/', 'https://ostrbovlje.si/next']);
+    }
+    const daily = JSON.parse((await handler({ queryStringParameters: { date: '2026-01-09' } })).body);
+    assert.equal(daily.source_url, 'https://ostrbovlje.si/current');
+
+    global.fetch = async () => ({ ok: true, text: async () => `
+      <a href="/old">Jedilnik 5.1.–9.1. 2026</a>
+      <a href="/undated">Jedilnik</a>
+      <a href="/later">Jedilnik 19.1.–23.1. 2026</a>` });
+    const unavailable = JSON.parse((await handler({ queryStringParameters: {
+      week: 'next', test_date: '2026-01-09',
+    } })).body);
+    assert.equal(unavailable.success, false);
+    assert.equal(unavailable.reason, 'not-published');
+    assert.equal(unavailable.week_start, '2026-01-12');
+
+    const days = _internals.getNextWeekDates(new Date(2026, 0, 9, 12));
+    const partial = _internals.parseWeekMenuPage(
+      '<table><tr><th>TOR</th><td>kruh</td><td>juha</td><td>sadje</td></tr></table>',
+      'Jedilnik 13.1.–16.1. 2026', 'https://ostrbovlje.si/next', days
+    );
+    assert.equal(partial.days[0].success, false);
+    assert.equal(partial.days[1].success, true);
+
+    global.fetch = async () => { throw new Error('Network offline'); };
+    const error = JSON.parse((await handler({ queryStringParameters: {
+      week: 'next', test_date: '2026-01-09',
+    } })).body);
+    assert.equal(error.success, false);
+    assert.notEqual(error.reason, 'not-published');
+  } finally {
+    global.fetch = originalFetch;
+  }
+}
+
+async function run() {
+  runSelectionTests();
+  runLinkParsingTests();
+  runFoodParsingTests();
+  runDateParsingTests();
+  runMenuPageParsingTests();
+  runNextWeekDateTests();
+  await runWeeklyHandlerTests();
+  console.log('All menu parser and API tests passed.');
+}
+
+run().then(() => setImmediate(() => process.exit(0))).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

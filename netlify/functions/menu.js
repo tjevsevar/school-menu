@@ -73,7 +73,7 @@ function parseMenuLinks(html) {
   const menus = [];
   const fallbackLinks = [];
   const dateRegex =
-    /(\d{1,2})\.(\d{1,2})\.[–-](\d{1,2})\.(\d{1,2})\.\s*(\d{4})/;
+    /(\d{1,2})\.\s*(\d{1,2})\.\s*[–-]\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/;
 
   $('a[href]').each((_, element) => {
     const text = $(element).text().trim();
@@ -99,7 +99,7 @@ function parseMenuLinks(html) {
       text,
       startDate: new Date(
         Date.UTC(
-          parseInt(year, 10),
+          parseInt(year, 10) - (Number(startMonth) > Number(endMonth) ? 1 : 0),
           parseInt(startMonth, 10) - 1,
           parseInt(startDay, 10)
         )
@@ -157,6 +157,60 @@ function selectMenu(menus, fallbackLinks, todayUtc, isFriday) {
   }
 
   return fallbackLinks[0] || null;
+}
+
+function getNextWeekDates(date) {
+  const monday = new Date(date);
+  const weekday = monday.getDay() || 7;
+  monday.setHours(12, 0, 0, 0);
+  monday.setDate(monday.getDate() - weekday + 8);
+  return Array.from({ length: 5 }, (_, offset) => {
+    const day = new Date(monday);
+    day.setDate(day.getDate() + offset);
+    return day;
+  });
+}
+
+function selectWeekMenu(menus, dates) {
+  const dateOnly = (date) => new Date(Date.UTC(
+    date.getFullYear(), date.getMonth(), date.getDate()
+  ));
+  const start = dateOnly(dates[0]);
+  const end = dateOnly(dates[4]);
+  return menus.find((menu) => menu.startDate <= end && menu.endDate >= start) || null;
+}
+
+function weekMetadata(dates) {
+  const first = formatDateParts(dates[0]);
+  const last = formatDateParts(dates[4]);
+  return {
+    week_start: first.isoDate,
+    week_end: last.isoDate,
+    date_range: `${first.shortDate}–${last.formattedDate}`,
+  };
+}
+
+function parseWeekMenuPage(html, menuTitle, menuUrl, dates) {
+  if (!cheerio.load(html)('table').length) {
+    return { success: false, error: 'Ne morem najti tabele jedilnika' };
+  }
+  const days = dates.map((date) => {
+    const parsed = parseMenuPage(html, menuTitle, menuUrl, date);
+    if (parsed.success) return parsed;
+    const parts = formatDateParts(date);
+    return {
+      success: false,
+      date: parts.isoDate,
+      error: 'Jedilnik za ta dan ni objavljen.',
+    };
+  });
+  return {
+    success: true,
+    ...weekMetadata(dates),
+    menu_title: menuTitle,
+    source_url: menuUrl,
+    days,
+  };
 }
 
 function splitItems(text) {
@@ -336,8 +390,10 @@ exports.handler = async function handler(event = {}) {
     const { sloveniaNow, todayUtc, isFriday, isWeekend } = getSloveniaDates(
       requestedDate || new Date()
     );
+    const weekly = query.week === 'next';
+    const weekDates = weekly ? getNextWeekDates(sloveniaNow) : null;
 
-    if (isWeekend) {
+    if (isWeekend && !weekly) {
       return jsonResponse({
         success: false,
         error: 'Jedilnik ni na voljo',
@@ -353,13 +409,18 @@ exports.handler = async function handler(event = {}) {
     }
 
     const { menus, fallbackLinks } = parseMenuLinks(await listResponse.text());
-    const selectedMenu = selectMenu(menus, fallbackLinks, todayUtc, isFriday);
+    const selectedMenu = weekly
+      ? selectWeekMenu(menus, weekDates)
+      : selectMenu(menus, fallbackLinks, todayUtc, isFriday);
 
     if (!selectedMenu || !selectedMenu.url) {
       return jsonResponse({
         success: false,
-        error: 'Jedilnik ni na voljo',
-        reason: 'no-data',
+        error: weekly
+          ? 'Jedilnik za naslednji teden še ni objavljen.'
+          : 'Jedilnik ni na voljo',
+        reason: weekly ? 'not-published' : 'no-data',
+        ...(weekly ? weekMetadata(weekDates) : {}),
       });
     }
 
@@ -370,16 +431,15 @@ exports.handler = async function handler(event = {}) {
       throw new Error(`Menu page request failed: ${menuResponse.status}`);
     }
 
-    return jsonResponse(
-      parseMenuPage(
-        await menuResponse.text(),
-        selectedMenu.text || 'Jedilnik',
-        selectedMenu.url,
-        sloveniaNow
-      ),
-      200,
-      { 'Cache-Control': 'max-age=300' }
-    );
+    const html = await menuResponse.text();
+    const menuData = weekly
+      ? parseWeekMenuPage(
+          html, selectedMenu.text || 'Jedilnik', selectedMenu.url, weekDates
+        )
+      : parseMenuPage(
+          html, selectedMenu.text || 'Jedilnik', selectedMenu.url, sloveniaNow
+        );
+    return jsonResponse(menuData, 200, { 'Cache-Control': 'max-age=300' });
   } catch (error) {
     return jsonResponse({
       success: false,
@@ -397,10 +457,13 @@ exports._internals = {
   extractDateRange,
   formatDateParts,
   getSloveniaDates,
+  getNextWeekDates,
   parseIsoDate,
   parseFoodItem,
   parseMealItems,
   parseMenuLinks,
   parseMenuPage,
+  parseWeekMenuPage,
   selectMenu,
+  selectWeekMenu,
 };

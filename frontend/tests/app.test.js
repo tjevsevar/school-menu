@@ -47,6 +47,8 @@ class FakeElement {
     this._text = '';
     this._innerHTML = '';
     this.classList = new FakeClassList(this);
+    this.listeners = {};
+    this.attributes = {};
   }
 
   set textContent(value) {
@@ -75,7 +77,21 @@ class FakeElement {
     return child;
   }
 
-  addEventListener() {}
+  addEventListener(type, listener) {
+    this.listeners[type] = listener;
+  }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
+
+  getAttribute(name) {
+    return this.attributes[name];
+  }
+
+  async click() {
+    return this.listeners.click?.();
+  }
 
   closest(selector) {
     if (!selector.startsWith('.')) {
@@ -154,10 +170,18 @@ function setupDocument() {
     'allergenInfo',
     'lastUpdate',
     'feedbackBtn',
+    'dayContext',
+    'nextWeekBtn',
+    'todayMenuBtn',
+    'weekNavigation',
+    'weekdayStrip',
   ].forEach((id) => documentRef.getElementById(id));
 
   documentRef.getElementById('allergenInfo').className = 'hidden';
   documentRef.getElementById('loading').className = 'hidden';
+  ['nextWeekBtn', 'todayMenuBtn', 'weekNavigation'].forEach((id) => {
+    documentRef.getElementById(id).hidden = true;
+  });
   return documentRef;
 }
 
@@ -347,6 +371,152 @@ async function testFetchFlowForSelectedDate() {
   assert.match(documentRef.getElementById('menuContent').textContent, /riž/);
 }
 
+function weeklyMenu() {
+  return {
+    success: true,
+    week_start: '2026-01-12',
+    week_end: '2026-01-16',
+    date_range: '12.01.–16.01.2026',
+    source_url: 'https://ostrbovlje.si/prehrana/jedilnik/next',
+    days: Array.from({ length: 5 }, (_, index) => ({
+      success: true,
+      date: `2026-01-${12 + index}`,
+      meals: {
+        malica: [{ name: `malica ${index + 1}`, allergens: ['G'] }],
+        kosilo: [{ name: `kosilo ${index + 1}`, allergens: [] }],
+        popMalica: [],
+      },
+    })),
+  };
+}
+
+async function testNextWeekButtonAndWholeWeek() {
+  const documentRef = setupDocument();
+  const calls = [];
+  app.setupWeekButtons(documentRef, async (url) => {
+    calls.push(url);
+    return { ok: true, json: async () => weeklyMenu() };
+  });
+  await documentRef.getElementById('nextWeekBtn').click();
+  assert.deepEqual(calls, ['/api/menu?week=next']);
+  assert.equal(documentRef.getElementById('dayContext').textContent, 'Naslednji teden');
+  assert.equal(documentRef.getElementById('currentDay').textContent, '12.01.–16.01.2026');
+  assert.equal(documentRef.getElementById('weekdayStrip').hidden, true);
+  assert.equal(documentRef.getElementById('todayMenuBtn').hidden, false);
+  assert.equal(documentRef.getElementById('nextWeekBtn').getAttribute('aria-pressed'), 'true');
+  const menu = documentRef.getElementById('menuContent');
+  assert.equal(menu.children.length, 5);
+  assert.match(menu.textContent, /Ponedeljek, 12.01.2026/);
+  assert.match(menu.textContent, /Petek, 16.01.2026/);
+  assert.match(menu.textContent, /kosilo 5/);
+  assert.equal(documentRef.querySelectorAll('.allergen-badge').length, 10);
+  assert.equal(documentRef.getElementById('menuLink').href, weeklyMenu().source_url);
+  assert.equal(documentRef.getElementById('loading').classList.contains('hidden'), true);
+
+  await documentRef.getElementById('todayMenuBtn').click();
+  assert.equal(documentRef.getElementById('dayContext').textContent, 'Danes');
+  assert.equal(documentRef.getElementById('weekdayStrip').hidden, false);
+  assert.equal(documentRef.getElementById('todayMenuBtn').hidden, true);
+  assert.equal(documentRef.getElementById('nextWeekBtn').getAttribute('aria-pressed'), 'false');
+}
+
+async function testUnpublishedWeekAndNetworkError() {
+  const documentRef = setupDocument();
+  app.displayMenu({ meals: { malica: [{ name: 'stara malica' }] } }, documentRef);
+  await app.fetchMenuInfo(documentRef, async () => ({
+    ok: true,
+    json: async () => ({ success: false, reason: 'not-published' }),
+  }), new Date(), true);
+  const menu = documentRef.getElementById('menuContent');
+  assert.match(menu.textContent, /naslednji teden še ni objavljen/);
+  assert.doesNotMatch(menu.textContent, /stara malica/);
+  assert.equal(documentRef.getElementById('allergenInfo').classList.contains('hidden'), true);
+
+  await app.fetchMenuInfo(documentRef, async () => { throw new Error('offline'); }, new Date(), true);
+  assert.match(menu.textContent, /Napaka pri nalaganju/);
+  assert.doesNotMatch(menu.textContent, /še ni objavljen/);
+  assert.equal(menu.getAttribute('aria-busy'), 'false');
+}
+
+async function testMissingDayAndSafeWeeklyRendering() {
+  const documentRef = setupDocument();
+  const menu = weeklyMenu();
+  menu.days[0].meals.kosilo[0].name = '<script>test</script>';
+  menu.days[1] = { success: false, date: '2026-01-13' };
+  app.displayWeekMenu(menu, documentRef);
+  assert.match(documentRef.getElementById('menuContent').textContent, /Torek, 13.01.2026/);
+  assert.match(documentRef.getElementById('menuContent').textContent, /Jedilnik za ta dan ni objavljen/);
+  assert.equal(findTag(documentRef.getElementById('menuContent'), 'script'), null);
+}
+
+async function testLateWeekResponseDoesNotReplaceDailyView() {
+  const documentRef = setupDocument();
+  let resolveWeek;
+  const pending = app.fetchMenuInfo(documentRef, () => new Promise((resolve) => {
+    resolveWeek = resolve;
+  }), new Date(), true);
+  await app.fetchMenuInfo(documentRef, async () => ({
+    ok: true,
+    json: async () => ({ success: true, meals: { kosilo: [{ name: 'današnje kosilo' }] } }),
+  }), new Date(2026, 0, 9, 12));
+  resolveWeek({ ok: true, json: async () => weeklyMenu() });
+  await pending;
+  assert.match(documentRef.getElementById('menuContent').textContent, /današnje kosilo/);
+  assert.equal(documentRef.getElementById('weekdayStrip').hidden, false);
+}
+
+async function testButtonAppearsOnlyAfterAvailabilityIsConfirmed() {
+  const documentRef = setupDocument();
+  const menu = documentRef.getElementById('menuContent');
+  menu.textContent = 'Današnji jedilnik';
+  let resolveCheck;
+  const pending = app.checkNextWeekAvailability(documentRef, (url) => {
+    assert.equal(url, '/api/menu?week=next');
+    return new Promise((resolve) => { resolveCheck = resolve; });
+  });
+  assert.equal(documentRef.getElementById('nextWeekBtn').hidden, true);
+  assert.equal(documentRef.getElementById('weekNavigation').hidden, true);
+  resolveCheck({ ok: true, json: async () => weeklyMenu() });
+  assert.equal(await pending, true);
+  assert.equal(documentRef.getElementById('nextWeekBtn').hidden, false);
+  assert.equal(documentRef.getElementById('weekNavigation').hidden, false);
+  assert.equal(menu.textContent, 'Današnji jedilnik');
+}
+
+async function testUnavailableWeekHasNoButtonOrEmptyRow() {
+  const scenarios = [
+    async () => ({ ok: true, json: async () => ({ success: false, reason: 'not-published' }) }),
+    async () => ({ ok: true, json: async () => ({ success: true, days: [] }) }),
+    async () => ({ ok: true, json: async () => ({ success: true, days: [{ success: false }] }) }),
+    async () => ({ ok: false }),
+    async () => { throw new Error('offline'); },
+  ];
+  for (const fetchMock of scenarios) {
+    const documentRef = setupDocument();
+    documentRef.getElementById('nextWeekBtn').hidden = false;
+    documentRef.getElementById('weekNavigation').hidden = false;
+    assert.equal(await app.checkNextWeekAvailability(documentRef, fetchMock), false);
+    assert.equal(documentRef.getElementById('nextWeekBtn').hidden, true);
+    assert.equal(documentRef.getElementById('weekNavigation').hidden, true);
+    assert.equal(documentRef.getElementById('menuContent').textContent, '');
+  }
+}
+
+async function testRemovedPublicationStillAllowsReturningToToday() {
+  const documentRef = setupDocument();
+  await app.fetchMenuInfo(documentRef, async () => ({
+    ok: true, json: async () => ({ success: false, reason: 'not-published' }),
+  }), new Date(), true);
+  assert.equal(documentRef.getElementById('nextWeekBtn').hidden, true);
+  assert.equal(documentRef.getElementById('todayMenuBtn').hidden, false);
+  assert.equal(documentRef.getElementById('weekNavigation').hidden, false);
+
+  await app.fetchMenuInfo(documentRef, async () => ({
+    ok: true, json: async () => ({ success: true, meals: { kosilo: [{ name: 'juha' }] } }),
+  }), new Date(2026, 0, 9, 12));
+  assert.equal(documentRef.getElementById('weekNavigation').hidden, true);
+}
+
 async function run() {
   await testLegacyMenuNormalization();
   await testStructuredMenuNormalization();
@@ -357,6 +527,13 @@ async function run() {
   await testErrorMessageRendersSafely();
   await testFetchFlow();
   await testFetchFlowForSelectedDate();
+  await testNextWeekButtonAndWholeWeek();
+  await testUnpublishedWeekAndNetworkError();
+  await testMissingDayAndSafeWeeklyRendering();
+  await testLateWeekResponseDoesNotReplaceDailyView();
+  await testButtonAppearsOnlyAfterAvailabilityIsConfirmed();
+  await testUnavailableWeekHasNoButtonOrEmptyRow();
+  await testRemovedPublicationStillAllowsReturningToToday();
   console.log('All frontend app tests passed.');
 }
 
