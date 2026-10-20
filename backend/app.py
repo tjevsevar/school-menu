@@ -7,6 +7,7 @@ from flask import Flask, send_from_directory, jsonify, request
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
+import json
 
 # Import from same directory
 from school_lunch_checker import LunchMenuChecker
@@ -16,6 +17,8 @@ frontend_dir = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend"
 )
 app = Flask(__name__, static_folder=frontend_dir)
+with open(os.path.join(frontend_dir, "schools.json"), encoding="utf-8") as schools_file:
+    schools = {school["id"]: school for school in json.load(schools_file)}
 
 
 @app.route("/")
@@ -33,6 +36,14 @@ def other_files(filename):
 @app.route("/api/menu")
 def get_menu():
     """API endpoint to get today's menu (or a specific test date)"""
+    school = schools.get(request.args.get("school", "trbovlje"))
+    if school is None:
+        return (
+            jsonify(
+                {"success": False, "reason": "unknown-school", "error": "Neznana šola."}
+            ),
+            400,
+        )
     try:
         # Check if there's a test_date parameter
         test_date_str = request.args.get("test_date")
@@ -46,7 +57,7 @@ def get_menu():
             if test_date_str:
                 today = datetime.strptime(test_date_str, "%Y-%m-%d")
             next_monday = today + timedelta(days=7 - today.weekday())
-            return jsonify(checker.get_week_menu(next_monday))
+            return jsonify({**checker.get_week_menu(next_monday), "school": school})
 
         # Override the date if test_date is provided
         if test_date_str:
@@ -65,6 +76,7 @@ def get_menu():
         from datetime import datetime as dt
 
         response_data = {
+            "school": school,
             "success": True,
             "menu": menu_result,
             "timestamp": dt.now().isoformat(),
@@ -88,7 +100,7 @@ def get_menu():
 
         return jsonify(response_data)
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e), "school": school}), 500
 
 
 if __name__ == "__main__":

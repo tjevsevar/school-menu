@@ -1,7 +1,7 @@
 {
-  "name": "Šolski Jedilnik - OŠ Trbovlje",
+  "name": "Šolski jedilniki - Trbovlje",
   "short_name": "Jedilnik",
-  "description": "Hitro preverjanje današnjega šolskega jedilnika",
+  "description": "Jedilniki trboveljskih osnovnih šol in podružnic",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#E8F2FB",

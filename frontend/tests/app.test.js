@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const app = require('../app');
+const schools = require('../schools.json');
 
 class FakeClassList {
   constructor(element) {
@@ -517,6 +518,116 @@ async function testRemovedPublicationStillAllowsReturningToToday() {
   assert.equal(documentRef.getElementById('weekNavigation').hidden, true);
 }
 
+function schoolWindow(search = '', savedSchool = null) {
+  const values = new Map(savedSchool ? [['school-menu-school', savedSchool]] : []);
+  const windowRef = {
+    location: { href: `https://example.com/${search}`, search },
+    localStorage: {
+      getItem: (key) => values.get(key),
+      setItem: (key, value) => values.set(key, value),
+    },
+    history: { replaceState: (_state, _title, url) => {
+      windowRef.location.href = String(url);
+      windowRef.location.search = url.search;
+    } },
+  };
+  return windowRef;
+}
+
+async function testInitialSchoolAndPersistence() {
+  assert.equal(app.getInitialSchool(schools, schoolWindow()).id, 'trbovlje');
+  assert.equal(app.getInitialSchool(schools, schoolWindow('', 'dobovec')).id, 'dobovec');
+  assert.equal(app.getInitialSchool(schools, schoolWindow('?school=toncke-cec', 'dobovec')).id, 'toncke-cec');
+  assert.equal(app.getInitialSchool(schools, schoolWindow('?school=unknown', 'dobovec')).id, 'dobovec');
+  const blockedStorage = schoolWindow('?school=ivana-cankarja');
+  Object.defineProperty(blockedStorage, 'localStorage', { get() { throw new Error('blocked'); } });
+  assert.equal(app.getInitialSchool(schools, blockedStorage).id, 'ivana-cankarja');
+  app.setupSchoolSelector(schools, setupDocument(), async () => {}, blockedStorage);
+}
+
+async function testSchoolSwitchingKeepsDateAndWeeklyView() {
+  const documentRef = setupDocument();
+  const windowRef = schoolWindow();
+  const calls = [];
+  const fetchMock = async (url) => {
+    calls.push(url);
+    const params = new URL(url, 'https://example.com').searchParams;
+    return { ok: true, json: async () => params.has('week') ? weeklyMenu() : {
+      success: true, meals: { kosilo: [{ name: `kosilo ${params.get('school')}` }] },
+    } };
+  };
+  app.setupSchoolSelector(schools, documentRef, fetchMock, windowRef);
+  const select = documentRef.getElementById('schoolSelect');
+  assert.equal(select.children.length, 5);
+  assert.equal(select.disabled, false);
+  await app.fetchMenuInfo(documentRef, fetchMock, new Date(2026, 0, 12, 12));
+  for (const school of schools) {
+    calls.length = 0;
+    select.value = school.id;
+    await select.listeners.change();
+    assert.deepEqual(calls, [
+      `/api/menu?test_date=2026-01-12&school=${school.id}`,
+      `/api/menu?week=next&school=${school.id}`,
+    ]);
+    assert.match(documentRef.getElementById('menuContent').textContent, new RegExp(`kosilo ${school.id}`));
+    assert.equal(documentRef.getElementById('schoolName').textContent, school.name);
+    assert.equal(documentRef.getElementById('schoolWebsite').href, school.website_url);
+    assert.equal(windowRef.localStorage.getItem('school-menu-school'), school.id);
+    assert.equal(new URL(windowRef.location.href).searchParams.get('school'), school.id);
+    assert.equal(app.getInitialSchool(schools, windowRef).id, school.id);
+  }
+  await app.fetchMenuInfo(documentRef, fetchMock, new Date(), true);
+  select.value = 'ivana-cankarja';
+  await select.listeners.change();
+  assert.equal(documentRef.getElementById('dayContext').textContent, 'Naslednji teden');
+  assert.equal(documentRef.getElementById('weekdayStrip').hidden, true);
+  assert.equal(documentRef.getElementById('menuContent').children.length, 5);
+}
+
+async function testOldSchoolCannotOverwriteMenuOrAvailability() {
+  const documentRef = setupDocument();
+  const windowRef = schoolWindow();
+  const freshFetch = async (url) => ({ ok: true, json: async () => url.includes('week=')
+    ? { success: false, reason: 'not-published' }
+    : { success: true, meals: { kosilo: [{ name: 'kosilo Dobovec' }] } } });
+  app.setupSchoolSelector(schools, documentRef, freshFetch, windowRef);
+  let resolveMenu;
+  let resolveAvailability;
+  const pendingMenu = app.fetchMenuInfo(documentRef,
+    () => new Promise((resolve) => { resolveMenu = resolve; }), new Date(2026, 0, 12, 12));
+  const pendingCheck = app.checkNextWeekAvailability(documentRef,
+    () => new Promise((resolve) => { resolveAvailability = resolve; }));
+  const select = documentRef.getElementById('schoolSelect');
+  select.value = 'dobovec';
+  await select.listeners.change();
+  resolveMenu({ ok: true, json: async () => ({ success: true, meals: { kosilo: [{ name: 'stara šola' }] } }) });
+  resolveAvailability({ ok: true, json: async () => weeklyMenu() });
+  await Promise.all([pendingMenu, pendingCheck]);
+  assert.match(documentRef.getElementById('menuContent').textContent, /kosilo Dobovec/);
+  assert.doesNotMatch(documentRef.getElementById('menuContent').textContent, /stara šola/);
+  assert.equal(documentRef.getElementById('schoolName').textContent, 'PŠ Dobovec');
+  assert.equal(documentRef.getElementById('nextWeekBtn').hidden, true);
+  assert.equal(documentRef.getElementById('weekNavigation').hidden, true);
+}
+
+async function testSchoolCatalogInitializationAndFailure() {
+  const documentRef = setupDocument();
+  const calls = [];
+  await app.init(documentRef, async (url) => {
+    calls.push(url);
+    return { ok: true, json: async () => url === '/schools.json' ? schools : {
+      success: false, reason: 'not-published',
+    } };
+  }, schoolWindow('?school=toncke-cec'));
+  assert.equal(calls[0], '/schools.json');
+  assert.ok(calls.includes('/api/menu?week=next&school=toncke-cec'));
+  assert.equal(documentRef.getElementById('schoolSelect').value, 'toncke-cec');
+  const failedDocument = setupDocument();
+  await app.init(failedDocument, async () => { throw new Error('offline'); }, schoolWindow());
+  assert.match(failedDocument.getElementById('schoolNote').textContent, /Preveri povezavo/);
+  assert.equal(failedDocument.getElementById('nextWeekBtn').hidden, true);
+}
+
 async function run() {
   await testLegacyMenuNormalization();
   await testStructuredMenuNormalization();
@@ -534,6 +645,10 @@ async function run() {
   await testButtonAppearsOnlyAfterAvailabilityIsConfirmed();
   await testUnavailableWeekHasNoButtonOrEmptyRow();
   await testRemovedPublicationStillAllowsReturningToToday();
+  await testInitialSchoolAndPersistence();
+  await testSchoolSwitchingKeepsDateAndWeeklyView();
+  await testOldSchoolCannotOverwriteMenuOrAvailability();
+  await testSchoolCatalogInitializationAndFailure();
   console.log('All frontend app tests passed.');
 }
 

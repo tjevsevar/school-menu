@@ -43,6 +43,62 @@
 
   let activeDate = new Date();
   let latestRequestId = 0;
+  let latestAvailabilityId = 0;
+  let activeSchool = null;
+  let activeWeeklyView = false;
+  const schoolStorageKey = 'school-menu-school';
+
+  function schoolMenuUrl() {
+    return activeSchool?.menu_url || 'https://ostrbovlje.si/prehrana/';
+  }
+
+  function withSchool(url, school = activeSchool) {
+    return school ? `${url}${url.includes('?') ? '&' : '?'}school=${encodeURIComponent(school.id)}` : url;
+  }
+
+  function getInitialSchool(schools, windowRef = globalScope) {
+    const linkedSchool = new URLSearchParams(windowRef.location?.search || '').get('school');
+    let savedSchool;
+    try { savedSchool = windowRef.localStorage?.getItem(schoolStorageKey); } catch {}
+    return schools.find((school) => school.id === linkedSchool) ||
+      schools.find((school) => school.id === savedSchool) || schools[0];
+  }
+
+  function selectSchool(school, documentRef, windowRef = globalScope) {
+    activeSchool = school;
+    documentRef.getElementById('schoolSelect').value = school.id;
+    documentRef.getElementById('schoolName').textContent = school.name;
+    documentRef.getElementById('schoolNote').textContent = school.note;
+    documentRef.getElementById('schoolWebsite').href = school.website_url;
+    documentRef.getElementById('menuLink').href = school.menu_url;
+    documentRef.title = `Jedilnik - ${school.name}`;
+    try { windowRef.localStorage?.setItem(schoolStorageKey, school.id); } catch {}
+    if (windowRef.location?.href && windowRef.history?.replaceState) {
+      const url = new URL(windowRef.location.href);
+      url.searchParams.set('school', school.id);
+      windowRef.history.replaceState(null, '', url);
+    }
+  }
+
+  function setupSchoolSelector(schools, documentRef = document, fetchImpl = fetch, windowRef = globalScope) {
+    const select = documentRef.getElementById('schoolSelect');
+    replaceChildren(select, schools.map((school) => {
+      const option = createElement(documentRef, 'option', null, school.name);
+      option.value = school.id;
+      return option;
+    }));
+    selectSchool(getInitialSchool(schools, windowRef), documentRef, windowRef);
+    select.disabled = false;
+    select.addEventListener('change', () => {
+      const school = schools.find((candidate) => candidate.id === select.value);
+      if (!school) return;
+      selectSchool(school, documentRef, windowRef);
+      return Promise.all([
+        fetchMenuInfo(documentRef, fetchImpl, activeDate, activeWeeklyView),
+        checkNextWeekAvailability(documentRef, fetchImpl),
+      ]);
+    });
+  }
 
   function createElement(documentRef, tagName, className, text) {
     const element = documentRef.createElement(tagName);
@@ -340,7 +396,7 @@
     replaceChildren(menuContent, [card]);
     documentRef.getElementById('menuDateRange').textContent =
       'Vikend - jedilnik ni na voljo';
-    documentRef.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
+    documentRef.getElementById('menuLink').href = schoolMenuUrl();
     if (allergenInfo) {
       allergenInfo.classList.add('hidden');
     }
@@ -390,11 +446,14 @@
   }
 
   async function checkNextWeekAvailability(documentRef = document, fetchImpl = fetch) {
+    const requestId = ++latestAvailabilityId;
+    const school = activeSchool;
     setNextWeekAvailable(documentRef, false);
     try {
-      const response = await fetchImpl('/api/menu?week=next', { cache: 'no-store' });
+      const response = await fetchImpl(withSchool('/api/menu?week=next', school), { cache: 'no-store' });
       if (!response.ok) return false;
       const available = hasWeekMenu(await response.json());
+      if (requestId !== latestAvailabilityId || school !== activeSchool) return false;
       setNextWeekAvailable(documentRef, available);
       return available;
     } catch {
@@ -403,6 +462,7 @@
   }
 
   function setWeekView(documentRef, weekly, menuData = null) {
+    activeWeeklyView = weekly;
     documentRef.getElementById('weekdayStrip').hidden = weekly;
     documentRef.getElementById('todayMenuBtn').hidden = !weekly;
     updateWeekNavigation(documentRef);
@@ -438,14 +498,14 @@
     }
 
     documentRef.getElementById('menuLink').href =
-      menuData.source_url || 'https://ostrbovlje.si/prehrana/';
+      menuData.source_url || schoolMenuUrl();
   }
 
   function getMenuUrl(date = activeDate) {
     if (!date || isSameDate(date, new Date())) {
-      return '/api/menu';
+      return withSchool('/api/menu');
     }
-    return `/api/menu?test_date=${encodeURIComponent(toIsoDate(date))}`;
+    return withSchool(`/api/menu?test_date=${encodeURIComponent(toIsoDate(date))}`);
   }
 
   async function fetchMenuInfo(
@@ -461,14 +521,14 @@
     replaceChildren(menuContent, []);
     documentRef.getElementById('allergenInfo').classList.add('hidden');
     documentRef.getElementById('menuDateRange').textContent = 'Nalagam jedilnik...';
-    documentRef.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
+    documentRef.getElementById('menuLink').href = schoolMenuUrl();
     try {
       if (!weekly && isWeekend(date)) {
         displayWeekendMessage(documentRef, date);
         return { success: false, reason: 'weekend' };
       }
       const response = await fetchImpl(
-        weekly ? '/api/menu?week=next' : getMenuUrl(date), { cache: 'no-store' }
+        weekly ? withSchool('/api/menu?week=next') : getMenuUrl(date), { cache: 'no-store' }
       );
       if (!response.ok) {
         throw new Error(`API status ${response.status}`);
@@ -489,7 +549,7 @@
       }
 
       documentRef.getElementById('menuDateRange').textContent = 'Jedilnik ni na voljo';
-      documentRef.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
+      documentRef.getElementById('menuLink').href = schoolMenuUrl();
       replaceChildren(documentRef.getElementById('menuContent'), [
         createErrorMessage(documentRef,
           weekly && menuData.reason === 'not-published'
@@ -502,7 +562,7 @@
       if (requestId !== latestRequestId) return { success: false, error: error.message };
       if (weekly) setNextWeekAvailable(documentRef, false);
       documentRef.getElementById('menuDateRange').textContent = 'Jedilnik (kliknite za ogled)';
-      documentRef.getElementById('menuLink').href = 'https://ostrbovlje.si/prehrana/';
+      documentRef.getElementById('menuLink').href = schoolMenuUrl();
       replaceChildren(documentRef.getElementById('menuContent'), [
         createErrorMessage(documentRef, 'Napaka pri nalaganju jedilnika.'),
       ]);
@@ -674,7 +734,7 @@
     }
   }
 
-  function setupWeekdayButtons(documentRef = document) {
+  function setupWeekdayButtons(documentRef = document, fetchImpl = fetch) {
     const buttons = documentRef.querySelectorAll('.weekday-strip button');
     buttons.forEach((button) => {
       button.addEventListener('click', async () => {
@@ -683,7 +743,7 @@
           return;
         }
         const targetDate = getWeekdayDate(new Date(), weekday);
-        await fetchMenuInfo(documentRef, fetch, targetDate);
+        await fetchMenuInfo(documentRef, fetchImpl, targetDate);
       });
     });
   }
@@ -697,18 +757,33 @@
     );
   }
 
-  function init(documentRef = document) {
+  async function init(documentRef = document, fetchImpl = fetch, windowRef = globalScope) {
     const now = new Date();
     registerServiceWorker();
     highlightWeekday(documentRef, now);
     updateDisplayedDate(documentRef, now);
     setupFeedbackButton(documentRef);
-    setupWeekdayButtons(documentRef);
-    setupWeekButtons(documentRef);
+    setupWeekdayButtons(documentRef, fetchImpl);
+    setupWeekButtons(documentRef, fetchImpl);
     setupAllergenTooltips(documentRef);
 
-    fetchMenuInfo(documentRef, fetch, now);
-    checkNextWeekAvailability(documentRef);
+    try {
+      const response = await fetchImpl('/schools.json', { cache: 'no-store' });
+      if (!response.ok) throw new Error('School list unavailable');
+      const schools = await response.json();
+      if (!Array.isArray(schools) || !schools.length) throw new Error('Empty school list');
+      setupSchoolSelector(schools, documentRef, fetchImpl, windowRef);
+      await Promise.all([
+        fetchMenuInfo(documentRef, fetchImpl, now),
+        checkNextWeekAvailability(documentRef, fetchImpl),
+      ]);
+    } catch {
+      documentRef.getElementById('schoolSelect').textContent = '';
+      documentRef.getElementById('schoolNote').textContent = 'Šol ni mogoče naložiti. Preveri povezavo in osveži stran.';
+      documentRef.getElementById('schoolWebsite').hidden = true;
+      documentRef.getElementById('menuDateRange').textContent = 'Jedilnik ni na voljo';
+      documentRef.getElementById('allergenInfo').classList.add('hidden');
+    }
   }
 
   const publicApi = {
@@ -726,6 +801,8 @@
     getWeekdayDate,
     setupWeekButtons,
     checkNextWeekAvailability,
+    getInitialSchool,
+    setupSchoolSelector,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

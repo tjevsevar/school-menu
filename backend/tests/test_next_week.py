@@ -100,3 +100,29 @@ def test_flask_next_week_route(monkeypatch, today, expected):
     result = app_module.app.test_client().get(f"/api/menu?week=next&test_date={today}")
     assert result.status_code == 200
     checker.get_week_menu.assert_called_once_with(expected)
+
+
+@pytest.mark.parametrize("school_id", app_module.schools)
+@pytest.mark.parametrize("weekly", [False, True])
+def test_flask_school_selection(monkeypatch, school_id, weekly):
+    checker = Mock()
+    checker.get_week_menu.return_value = {"success": True, "days": []}
+    checker.check_lunch_menu_for_date.return_value = "🥗 MALICA: kruh"
+    checker.get_current_week_menu_url_for_date.return_value = None
+    monkeypatch.setattr(app_module, "LunchMenuChecker", lambda: checker)
+    week_query = "&week=next" if weekly else ""
+    result = app_module.app.test_client().get(
+        f"/api/menu?school={school_id}&test_date=2026-01-12{week_query}"
+    )
+    assert result.status_code == 200
+    assert result.json["success"] is True
+    assert result.json["school"] == app_module.schools[school_id]
+
+
+def test_flask_rejects_unknown_school_before_fetching(monkeypatch):
+    checker_factory = Mock()
+    monkeypatch.setattr(app_module, "LunchMenuChecker", checker_factory)
+    result = app_module.app.test_client().get("/api/menu?school=unknown")
+    assert result.status_code == 400
+    assert result.json["reason"] == "unknown-school"
+    checker_factory.assert_not_called()
