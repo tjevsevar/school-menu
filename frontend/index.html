@@ -4,8 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Šolski jedilniki - Trbovlje</title>
-    <meta name="description" content="Jedilniki trboveljskih osnovnih šol in podružnic. Izberi svojo šolo ter preveri današnji jedilnik in že objavljeni jedilnik za naslednji teden.">
+    <title>Dnevni šolski jedilnik - OŠ Trbovlje</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e8f2fb">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,8 +13,8 @@
     <link rel="apple-touch-icon" href="app-icon.png">
     <link rel="icon" type="image/png" href="app-icon.png">
 
-    <link rel="stylesheet" href="styles.css?v=20261020-schools">
-    <script src="app.js?v=20261020-schools" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20261020-single-school">
+    <script src="app.js?v=20261020-single-school" defer></script>
 </head>
 
 <body class="app-body">
@@ -24,21 +23,11 @@
             <div class="brand-lockup">
                 <div class="brand-mark" aria-hidden="true">J</div>
                 <div>
-                    <p class="brand-kicker">Trbovlje · šolski jedilniki</p>
+                    <p class="brand-kicker">OŠ Trbovlje</p>
                     <h1>Jedilnik</h1>
                 </div>
             </div>
         </header>
-
-        <section class="school-panel" aria-labelledby="schoolLabel">
-            <label id="schoolLabel" for="schoolSelect">Izberi šolo</label>
-            <select id="schoolSelect" aria-describedby="schoolNote" disabled>
-                <option>Nalagam šole...</option>
-            </select>
-            <p class="school-name" id="schoolName" aria-live="polite"></p>
-            <p class="school-note" id="schoolNote"></p>
-            <a id="schoolWebsite" target="_blank" rel="noopener noreferrer">Spletna stran šole ↗</a>
-        </section>
 
         <section class="today-panel" aria-labelledby="todayTitle">
             <div class="today-copy">

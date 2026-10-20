@@ -1,7 +1,7 @@
 const cheerio = require('cheerio');
-const schools = require('../../frontend/schools.json');
 
 const BASE_URL = 'https://ostrbovlje.si';
+const MENU_URL = 'https://ostrbovlje.si/prehrana/';
 const TIMEZONE = 'Europe/Ljubljana';
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
@@ -384,15 +384,8 @@ function jsonResponse(body, statusCode = 200, extraHeaders = {}) {
 }
 
 exports.handler = async function handler(event = {}) {
-  const query = event.queryStringParameters || {};
-  const schoolId = query.school === undefined ? 'trbovlje' : query.school;
-  const school = schools.find((candidate) => candidate.id === schoolId);
-  if (!school) {
-    return jsonResponse({ success: false, reason: 'unknown-school', error: 'Neznana šola.' }, 400);
-  }
-  const respond = (body, statusCode = 200, headers = {}) =>
-    jsonResponse({ ...body, school }, statusCode, headers);
   try {
+    const query = event.queryStringParameters || {};
     const requestedDate = parseIsoDate(query.test_date || query.date);
     const { sloveniaNow, todayUtc, isFriday, isWeekend } = getSloveniaDates(
       requestedDate || new Date()
@@ -401,14 +394,14 @@ exports.handler = async function handler(event = {}) {
     const weekDates = weekly ? getNextWeekDates(sloveniaNow) : null;
 
     if (isWeekend && !weekly) {
-      return respond({
+      return jsonResponse({
         success: false,
         error: 'Jedilnik ni na voljo',
         reason: 'weekend',
       });
     }
 
-    const listResponse = await fetch(school.menu_url, {
+    const listResponse = await fetch(MENU_URL, {
       headers: { 'User-Agent': USER_AGENT },
     });
     if (!listResponse.ok) {
@@ -421,7 +414,7 @@ exports.handler = async function handler(event = {}) {
       : selectMenu(menus, fallbackLinks, todayUtc, isFriday);
 
     if (!selectedMenu || !selectedMenu.url) {
-      return respond({
+      return jsonResponse({
         success: false,
         error: weekly
           ? 'Jedilnik za naslednji teden še ni objavljen.'
@@ -446,9 +439,9 @@ exports.handler = async function handler(event = {}) {
       : parseMenuPage(
           html, selectedMenu.text || 'Jedilnik', selectedMenu.url, sloveniaNow
         );
-    return respond(menuData, 200, { 'Cache-Control': 'max-age=300' });
+    return jsonResponse(menuData, 200, { 'Cache-Control': 'max-age=300' });
   } catch (error) {
-    return respond({
+    return jsonResponse({
       success: false,
       error:
         error instanceof Error

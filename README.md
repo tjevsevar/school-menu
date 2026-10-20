@@ -154,32 +154,6 @@ All checks must pass before code can be merged. Tests run automatically in GitHu
 
 ## How It Works
 
-### Trbovlje schools
-
-The school selector includes OŠ Trbovlje, OŠ Ivana Cankarja, OŠ Tončke Čeč,
-PŠ Alojza Hohkrauta and PŠ Dobovec. Selection is stored on the device and in
-the `?school=…` URL so links can open a specific school. Both API backends
-validate the school ID and include its metadata in daily and next-week responses.
-
-`frontend/schools.json` is the shared catalog for the frontend, Netlify function
-and Flask server. All five currently use the same published menu. This was
-verified on the official sites on 20 October 2026:
-
-- [OŠ Ivana Cankarja](https://www.osic.si/), under Prehrana → Jedilnik,
-  links to the OŠ Trbovlje menu page.
-- [OŠ Tončke Čeč](https://www.os-toncke-cec.si/), under Jedilniki,
-  links to the OŠ Trbovlje menu page.
-- [OŠ Trbovlje school information](https://www.ostrbovlje.si/o-soli/osnovni-podatki)
-  identifies both branches and confirms that its central kitchen prepares meals
-  for all three Trbovlje primary schools. Both branches use their parent school's
-  published menu; no separate branch menu is published on its nutrition page.
-
-The UI explains the shared source and links to each school's official website.
-Menus are fetched from the official nutrition page on each request, rather than
-copied into the application. The next-week button appears only after publication.
-
-### Menu retrieval
-
 1. **Fetches the main menu page** from https://ostrbovlje.si/prehrana/
 2. **Identifies the current week's menu** by parsing date ranges in menu links
 3. **Downloads the current week's detailed menu**

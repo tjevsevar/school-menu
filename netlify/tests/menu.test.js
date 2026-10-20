@@ -1,7 +1,6 @@
 const assert = require('node:assert/strict');
 
 const { _internals, handler } = require('../functions/menu');
-const schools = require('../../frontend/schools.json');
 
 function dateUtc(year, month, day) {
   return new Date(Date.UTC(year, month - 1, day));
@@ -212,52 +211,6 @@ async function runWeeklyHandlerTests() {
   }
 }
 
-async function runSchoolHandlerTests() {
-  const originalFetch = global.fetch;
-  const calls = [];
-  try {
-    global.fetch = async (url) => {
-      calls.push(url);
-      return { ok: true, text: async () => url.endsWith('/prehrana/')
-        ? '<a href="/next">Jedilnik 12.1.–16.1. 2026</a>' : weeklyHtml() };
-    };
-    assert.equal(schools.length, 5);
-    for (const school of schools) {
-      for (const week of [undefined, 'next']) {
-        calls.length = 0;
-        const response = await handler({ queryStringParameters: {
-          school: school.id, test_date: week ? '2026-01-09' : '2026-01-12', week,
-        } });
-        const body = JSON.parse(response.body);
-        assert.equal(body.success, true);
-        assert.deepEqual(body.school, school);
-        assert.equal(calls[0], school.menu_url);
-        assert.equal(calls.length, 2);
-        if (week) assert.equal(body.days.length, 5);
-        else assert.equal(body.date, '2026-01-12');
-      }
-    }
-    calls.length = 0;
-    for (const school of ['unknown', '', '__proto__', 'https://example.com/']) {
-      const response = await handler({ queryStringParameters: { school } });
-      assert.equal(response.statusCode, 400);
-      assert.equal(JSON.parse(response.body).reason, 'unknown-school');
-    }
-    assert.equal(calls.length, 0);
-    assert.equal(JSON.parse((await handler({ queryStringParameters: {
-      test_date: '2026-01-12',
-    } })).body).school.id, 'trbovlje');
-    global.fetch = async () => { throw new Error('offline'); };
-    const failed = JSON.parse((await handler({ queryStringParameters: {
-      school: 'dobovec', test_date: '2026-01-12',
-    } })).body);
-    assert.equal(failed.success, false);
-    assert.equal(failed.school.id, 'dobovec');
-  } finally {
-    global.fetch = originalFetch;
-  }
-}
-
 async function run() {
   runSelectionTests();
   runLinkParsingTests();
@@ -266,7 +219,6 @@ async function run() {
   runMenuPageParsingTests();
   runNextWeekDateTests();
   await runWeeklyHandlerTests();
-  await runSchoolHandlerTests();
   console.log('All menu parser and API tests passed.');
 }
 
